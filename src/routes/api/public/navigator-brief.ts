@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { EVIDENCE_PACK } from "@/server/evidence-pack";
+import { MAX_WORRY_CHARS, RATE_LIMIT_MESSAGE, clientIp, createRateLimiter, readJsonBody } from "@/server/request-guards";
 import { filterEligible, fallbackPoints, validateModelOutput, type BriefInput, type Card } from "@/lib/navigator";
 
 // Public endpoint: no auth, stores nothing, returns only evidence-pack derived content.
 const BASE = "https://api.tokenfactory.nebius.com/v1";
 let cachedModel: string | null = null;
 let cachedList: string[] = [];
+const rateLimit = createRateLimiter();
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
 async function selectModel(key: string): Promise<string> {
   if (process.env["NEBIUS_MODEL"]) return process.env["NEBIUS_MODEL"];
@@ -42,12 +44,12 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: { health?: unknown; conditions?: unknown; hfType?: unknown; medicines?: unknown; numbers?: unknown; worry?: unknown };
-        try {
-          body = await request.json();
-        } catch {
-          return json({ error: "invalid_json" }, 400);
-        }
+        const limit = rateLimit(clientIp(request));
+        if (!limit.allowed) return json({ error: "rate_limited", message: RATE_LIMIT_MESSAGE }, 429, { "retry-after": String(limit.retryAfterSec) });
+        const parsed = await readJsonBody(request);
+        if (!parsed.ok) return json({ error: parsed.error }, parsed.status);
+        if (typeof parsed.body !== "object" || parsed.body === null) return json({ error: "invalid_json" }, 400);
+        const body = parsed.body as { health?: unknown; conditions?: unknown; hfType?: unknown; medicines?: unknown; numbers?: unknown; worry?: unknown };
         const key = process.env["NEBIUS_API_KEY"];
 
         if (body.health) {
@@ -65,7 +67,7 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
           hfType: typeof body.hfType === "string" ? body.hfType.slice(0, 40) : undefined,
           medicines: (Array.isArray(body.medicines) ? body.medicines : []).map((m) => String(m).slice(0, 80)).slice(0, 30),
           numbers: typeof body.numbers === "object" && body.numbers ? (body.numbers as Record<string, string>) : {},
-          worry: typeof body.worry === "string" ? body.worry.slice(0, 300) : "",
+          worry: typeof body.worry === "string" ? body.worry.slice(0, MAX_WORRY_CHARS) : "",
         };
         const eligible = filterEligible(EVIDENCE_PACK.cards as unknown as Card[], input.conditions, input.medicines);
         const eligible_ids = eligible.map((c) => c.id);
