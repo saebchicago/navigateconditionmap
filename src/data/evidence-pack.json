@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-28",
+  "version": "2026-10-29",
   "scope": ["heart_failure", "type_2_diabetes", "ckd"],
   "label_definitions": {
     "Verified": "Paraphrased from a published guideline or consensus report and checked against it, cited with DOI."
@@ -96,7 +96,7 @@
       "id": "E7",
       "requires": ["type_2_diabetes", "ckd"],
       "topic": "GLP-1 receptor agonist",
-      "guideline_says": "ADA's 2026 Standards of Care recommend a GLP-1 receptor agonist with proven benefit for people with type 2 diabetes and CKD, to slow kidney disease and lower heart risk. A large trial (FLOW), in people with type 2 diabetes, CKD, and raised urine albumin, showed semaglutide protected the kidneys.",
+      "guideline_says": "ADA's 2026 Standards of Care recommend a GLP-1 receptor agonist with proven benefit for people with type 2 diabetes and CKD, to slow kidney disease and lower heart risk. A large trial (FLOW, NEJM 2024), in people with type 2 diabetes and CKD, found that semaglutide lowered the risk of a combined outcome by 24% compared with placebo. The combined outcome was kidney failure, a large drop in kidney function, or death from kidney or heart causes.",
       "question_for_clinician": "Would a GLP-1 receptor agonist with proven kidney and heart benefit fit this person's care plan?",
       "source": "ADA_CKD_2026",
       "label": "Verified"
@@ -141,7 +141,7 @@
       "id": "E12",
       "requires": ["type_2_diabetes", "ckd"],
       "topic": "SGLT2 inhibitor and finerenone together",
-      "guideline_says": "ADA's 2026 Standards of Care say starting an SGLT2 inhibitor and finerenone at the same time can be considered for adults with type 2 diabetes who take a medicine that blocks the renin-angiotensin system (such as an ACE inhibitor or ARB), have a urine albumin (UACR) of 100 or more, and have an eGFR of 30 to 90. A study (CONFIDENCE) showed this was safe and lowered urine albumin more than either drug alone.",
+      "guideline_says": "ADA's 2026 Standards of Care say starting an SGLT2 inhibitor and finerenone at the same time can be considered for adults with type 2 diabetes who take a medicine that blocks the renin-angiotensin system (such as an ACE inhibitor or ARB), have a urine albumin (UACR) of 100 or more, and have an eGFR of 30 to 90. A 6-month study (CONFIDENCE, NEJM 2025) found that starting both together lowered urine albumin more than either drug alone, with no unexpected safety problems. It did not measure kidney failure or other long-term outcomes.",
       "question_for_clinician": "Do the latest UACR and eGFR results fit the range where these two medicines can be considered together?",
       "source": "ADA_CKD_2026",
       "label": "Verified"
