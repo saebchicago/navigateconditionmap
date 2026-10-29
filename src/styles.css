@@ -44,7 +44,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-success: var(--success);
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Source Serif 4", Georgia, serif;
   --shadow-card: var(--shadow-card);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -118,11 +119,15 @@
 
 .print-only { display: none; }
 @media print {
-  html { font-size: 12pt; }
+  html { font-size: 11pt; }
+  body { line-height: 1.4; }
+  .print-exact { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .no-print { display: none !important; }
   .print-only { display: block; }
   body { background: white; color: black; }
-  .print-card { box-shadow: none !important; border: 1px solid #999 !important; break-inside: avoid; padding: 8pt !important; margin-bottom: 6pt !important; }
-  details > *:not(summary) { display: block !important; }
-  @page { margin: 12mm; }
+  .print-card { box-shadow: none !important; border: 1px solid #999 !important; break-inside: avoid; padding: 8pt !important; margin-bottom: 4pt !important; }
+  .print-line { height: 16pt; }
+  .print-line { display: block; border-bottom: 1px solid #888; height: 20pt; }
+  a { color: black; text-decoration: none; }
+  @page { margin: 10mm; }
 }
