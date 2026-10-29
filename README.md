@@ -131,6 +131,8 @@ The hackathon submission period began on August 26, 2026. This repository was cr
 | Oct 29 | `ac18309` | README, setup, CI, screenshots                                                                                     |
 | Oct 29 | `c9d432b` | Allowlist wording check, test results no longer sent to the model, audit fixes                                     |
 | Oct 29 | `6e3d772` | Evaluation results for the allowlist build                                                                         |
+| Oct 29 | `1623d84` | Medicine confirmation, move, remove, and add-another questions                                                     |
+| Oct 29 | `9caafa7` | Lighter page (font 122 KB to 51 KB), 39 unused dependencies removed                                                |
 | Oct 29 | `019bcea` | Current-medicine parsing, full card text, urgent-symptom notice, concern-match label, E12 grouped with SGLT2 cards |
 | Oct 29 | `791de5e` | Model only orders cards; its sentences are never shown (fixes a reversal found in audit)                           |
 
