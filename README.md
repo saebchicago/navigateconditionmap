@@ -79,22 +79,23 @@ All screenshots use synthetic example answers, not a real person. The results pa
 
 ## Evaluation
 
-`scripts/eval` runs 30 synthetic caregiver cases (no real patient data) against the live endpoint and scores the responses (`bun scripts/eval/score.ts scripts/eval/after.json`). Results, run Oct 29, 2026:
+`scripts/eval` runs 30 synthetic caregiver cases (no real patient data) against the live endpoint and scores the responses (`bun scripts/eval/score.ts scripts/eval/after-c9d432b.json`). Results, run Oct 29, 2026 (the result files are `baseline.json`, `after.json`, and `after-c9d432b.json`):
 
-| | Older build (`814a82d`) | Current build (`507bb50`) |
-|---|---|---|
-| Answered by Nemotron | 27 of 30 | 28 of 30 |
-| Fallback | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same 2 kidney-only cases) |
-| Model response time (server-measured) | median 1.9 s, p90 5.4 s, max 12.2 s | median 1.7 s, p90 5.1 s, max 13.8 s |
-| Points kept in the model's wording | 64 of 67 (96%) | 52 of 67 (78%) |
-| Points replaced with the card's wording | 3 | 15 |
-| Violations of 6 structural rules* | 0 | 0 |
+| | Older build (`814a82d`) | Build `507bb50` | Current build (`c9d432b`) |
+|---|---|---|---|
+| Answered by Nemotron | 27 of 30 | 28 of 30 | 28 of 30 |
+| Fallback | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same kidney-only cases) | 2 (the same kidney-only cases) |
+| Model response time (server-measured) | median 1.9 s, p90 5.4 s, max 12.2 s | median 1.7 s, p90 5.1 s, max 13.8 s | median 1.5 s, p90 1.9 s, max 2.1 s |
+| Drafted sentences shown in the model's wording | 64 of 67 (96%) | 52 of 67 (78%) | 12 of 67 (18%) |
+| Replaced with the card's own wording | 3 | 15 | 55 |
+| Violations of 6 structural rules* | 0 | 0 | 0 |
+| Heart failure cards that did not fit the chosen type | see note | see note | 0 |
 
 *At most 3 points, at most one card per medicine class, only eligible cards, questions verbatim from the card, no milligram dose, no relationship words.
 
-Note: both runs above used checkers that were weaker than the current one. Replaying the saved current-build responses through the current allowlist checker would replace 34 of the 52 sentences that run kept (65%), so the share of model wording shown is now much lower than the 78% in the table. A fresh live run on the published current build will replace this table. The runner still sends test results; the server now ignores them.
+The current build (`c9d432b`, run October 29, 2026 at 11:19 UTC) applies the allowlist check described under Safety design, so the model's own wording is shown only when every word appears in its card. In this run that was 18% of drafted sentences; the rest fell back to the card's wording. In practice Nemotron mainly chooses which cards appear and in what order. The older runs used weaker checkers and are kept for comparison. The runner still sends test results; the server now ignores them. The older builds had no heart failure type filter, so a mismatch count for them is not meaningful.
 
-What this does and does not show: the stricter wording checks replace more of the model's sentences with the guideline's own wording (22% versus 4%). The scores cover structure and listed wording rules only. They do not establish clinical correctness. An independent keyword scan of the kept sentences still flagged 7 of 52 that paraphrase a benefit the card states in other words (for example "helps protect the kidneys" for the card on kidney benefit). Thirty synthetic cases from one run on one day is a small sample.
+What this does and does not show: each stricter checker replaced more of the model's sentences with the guideline's own wording (4%, then 22%, then 82%). The scores cover structure and listed wording rules only. They do not establish clinical correctness. The earlier checker still let paraphrased benefit wording through (for example "helps protect the kidneys"); the allowlist closes that. In a separate adversarial test of 171 unsafe sentences, 159 passed the earlier checker and 15 pass the current one, 13 of them the cards' own wording. Thirty synthetic cases from one run on one day is a small sample.
 
 ### Running the evaluation yourself
 
