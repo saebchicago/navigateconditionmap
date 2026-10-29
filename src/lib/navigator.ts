@@ -84,6 +84,16 @@ const classOf = (id: string) => CLASS_GROUPS.find((g) => g.has(id));
 const SAFETY_CLAIM = /\b(safe|safely|safer|safest|harmless|risk[-\s]free|no\s+risk|guaranteed?)\b/i;
 const DOSING = /\b(dose|doses|dosing)\b/i;
 const RELATIONSHIPS = /\b(mom|mother|dad|father|wife|husband|her|his|him|she|he|we|i|my|me|mine|our|us|your|yours|loved\s+one)\b/i;
+// Benefit words are one family: a point may state a benefit only if its card states one.
+// Certainty words must appear in the card itself. Phrases that only look like claims are ignored.
+const BENEFIT_ROOTS = ["protect", "prevent", "benefit", "improv", "reduc", "lower", "slow", "help", "better"];
+const CERTAINTY_ROOTS = ["proven", "require", "must", "mandatory", "essential", "always", "never"];
+const NOT_CLAIMS = /\b(mildly\s+reduced|reduced\s+ejection|reduced\s+ef|lower\s+dose|slowly)\b/gi;
+const rootsIn = (roots: string[], text: string) => {
+  const t = text.replace(NOT_CLAIMS, " ");
+  return roots.filter((root) => new RegExp(`\\b${root}`, "i").test(t));
+};
+const CARD_ID = /\bE\d{1,2}\b/g;
 const normalize = (text: string) => text.toLowerCase().replace(/[\u2010-\u2015]/g, "-");
 const numericTokens = (text: string) => text.match(/\d+(?:,\d{3})*(?:\.\d+)?/g)?.map((v) => v.replace(/,/g, "")) ?? [];
 const containsTerm = (text: string, term: string) => new RegExp(`\\b${term.replace(/ /g, "\\s+")}s?\\b`, "i").test(normalize(text));
@@ -93,17 +103,31 @@ export function standardPoint(card: Card): string {
   return `${card.topic}: ${firstSentence}`;
 }
 
-/** Exact lexical guard, not a claim that all generated semantics are verified. */
-export function checkPoint(point: string, card: Card, input?: BriefInput): { point: string; standardized: boolean } {
+/** True when text uses a word, number, medicine, dose, safety, benefit, or certainty claim its card does not support. */
+export function violatesCard(text: string, card: Card, input?: BriefInput): boolean {
   const explicit = input ? [...input.conditions, input.hfType ?? "", ...input.medicines, ...Object.values(input.numbers), input.worry].join(" ") : "";
   const allowedNumbers = new Set(numericTokens(`${card.guideline_says} ${explicit}`));
   const allowedMedicines = `${card.guideline_says} ${(input?.medicines ?? []).join(" ")}`;
-  const invalid = !point.trim() || RELATIONSHIPS.test(point)
-    || (DOSING.test(point) && !card.guideline_says.toLowerCase().includes("dose"))
-    || (SAFETY_CLAIM.test(point) && !SAFETY_CLAIM.test(card.guideline_says))
-    || numericTokens(point).some((n) => !allowedNumbers.has(n))
-    || MEDICINE_TERMS.some((term) => containsTerm(point, term) && !containsTerm(allowedMedicines, term));
-  return invalid ? { point: standardPoint(card), standardized: true } : { point, standardized: false };
+  const cardStatesBenefit = rootsIn(BENEFIT_ROOTS, card.guideline_says).length > 0;
+  const cardCertainty = new Set(rootsIn(CERTAINTY_ROOTS, card.guideline_says));
+  return !text.trim() || RELATIONSHIPS.test(text)
+    || (DOSING.test(text) && !card.guideline_says.toLowerCase().includes("dose"))
+    || (SAFETY_CLAIM.test(text) && !SAFETY_CLAIM.test(card.guideline_says))
+    || (!cardStatesBenefit && rootsIn(BENEFIT_ROOTS, text).length > 0)
+    || rootsIn(CERTAINTY_ROOTS, text).some((root) => !cardCertainty.has(root))
+    || numericTokens(text).some((n) => !allowedNumbers.has(n))
+    || MEDICINE_TERMS.some((term) => containsTerm(text, term) && !containsTerm(allowedMedicines, term));
+}
+
+/** Exact lexical guard, not a claim that all generated semantics are verified. */
+export function checkPoint(point: string, card: Card, input?: BriefInput): { point: string; standardized: boolean } {
+  return violatesCard(point, card, input) ? { point: standardPoint(card), standardized: true } : { point, standardized: false };
+}
+
+/** Rationale gets the same checks after card IDs are named generically; a failing rationale is dropped, not shown. */
+export function checkRationale(rationale: string, card: Card, input?: BriefInput): string {
+  const text = rationale.replace(/^E\d{1,2}\b/, "This card").replace(CARD_ID, "this card").trim();
+  return text && !violatesCard(text, card, input) ? text : "";
 }
 
 /** Keep one card per medicine class (SGLT2, nonsteroidal MRA), use remaining model ranks, then fill from pack order. */
@@ -170,7 +194,7 @@ export function validateModelOutput(raw: string, eligible: Card[], input?: Brief
       card_id: id,
       ...checkPoint(s((p as BriefPoint).point), card, input),
       question: card.question_for_clinician,
-      rationale: s((p as BriefPoint).rationale),
+      rationale: checkRationale(s((p as BriefPoint).rationale), card, input),
     });
   }
   return out.length ? diversePoints(out, eligible) : null;

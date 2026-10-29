@@ -97,8 +97,12 @@ const sourceName = (id: string) => SOURCE_NAMES[id] ?? SOURCES[id]?.title ?? id;
 const displayPoint = (point: string, topic: string) =>
   point.startsWith(`${topic}: `) ? point.slice(topic.length + 2) : point;
 const displayRationale = (r?: string) => {
-  if (!r || r.startsWith("Selected by rule"))
+  if (!r)
+    return "Ranked by NVIDIA Nemotron. Its explanation is left out because it did not match the card's wording.";
+  if (r.startsWith("Selected by rule to fill"))
     return "Added from the guideline cards to round out the list.";
+  if (r.startsWith("Selected by rule"))
+    return "Chosen by rule from the cards that fit your answers.";
   return r.replace(/^E\d{1,2}\b/, "This card").replace(/\bE\d{1,2}\b/g, "this card");
 };
 
@@ -181,13 +185,14 @@ function Index() {
         }),
       });
       const data = (await r.json()) as Result;
+      if (r.status === 429) throw new Error("rate_limited");
       if (!r.ok || !Array.isArray(data.points)) throw new Error("bad_response");
       setResult(data);
-    } catch {
+    } catch (e) {
       setResult({
         points: fallbackPoints(eligible, conditions.includes("heart_failure") ? hfType : undefined),
         mode: "fallback",
-        error: "service_unreachable",
+        error: (e as Error).message === "rate_limited" ? "rate_limited" : "service_unreachable",
       });
     } finally {
       setLoading(false);
@@ -605,8 +610,17 @@ function Brief({
 
       {result.mode === "fallback" && (
         <p className="mb-4 rounded-md border-2 border-accent bg-accent/10 p-3 text-sm">
-          <strong>The AI ranking wasn't available just now.</strong> These come straight from the
-          guideline cards in their standard order. Every point is still sourced.
+          {result.error === "rate_limited" ? (
+            <>
+              <strong>You've made several pages in a short time.</strong> These come straight from
+              the guideline cards. Wait a few minutes to get the AI-ranked version.
+            </>
+          ) : (
+            <>
+              <strong>The AI ranking wasn't available just now.</strong> These come straight from
+              the guideline cards in their standard order. Every point is still sourced.
+            </>
+          )}
         </p>
       )}
 

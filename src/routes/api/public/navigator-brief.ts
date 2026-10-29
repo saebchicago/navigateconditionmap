@@ -9,6 +9,16 @@ let cachedModel: string | null = null;
 let cachedList: string[] = [];
 const rateLimit = createRateLimiter();
 
+const NUMBER_KEYS = ["egfr", "uacr", "a1c", "bp", "potassium"] as const;
+/** Keep only the known lab fields, as short strings, so the prompt cannot be padded through this object. */
+function sanitizeNumbers(raw: unknown): Record<string, string> {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {};
+  const src = raw as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const k of NUMBER_KEYS) if (typeof src[k] === "string" || typeof src[k] === "number") out[k] = String(src[k]).slice(0, 20);
+  return out;
+}
+
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 
@@ -33,7 +43,8 @@ function buildPrompt(input: BriefInput, eligible: Card[]) {
 - For each: "point" must be a short plain-language STATEMENT explaining why this topic matters for this situation, never a question (the question is shown separately). Use a 6th-8th grade reading level. "rationale" = one sentence on why it ranks here. Do not return a question field; the app uses the evidence card's question verbatim.
 - Each point may use facts ONLY from that selected card's guideline_says and the caregiver's explicit inputs. Never borrow facts from another card. Do not infer the presence OR absence of unselected conditions. Do not invent numbers or medicine/class terms.
 - Never assume relationships or gender. No mom, mother, dad, father, wife, husband, her, his, him, she, he, we, i, my, me, mine, our, us, your, or yours. Say "the person you care for" or "they". Use a neutral, calm tone. Apply these rules to rationale too.
-- Restate only what the card says. Do not add benefits, symptoms, outcomes, or reasons that are not in the card's guideline_says.
+- Restate only what the card says. Do not add benefits, symptoms, outcomes, or reasons that are not in the card's guideline_says. Do not make a recommendation sound stronger than the card (no "required" or "must" unless the card says so).
+- Never mention card IDs such as E1 in point or rationale; name the topic instead.
 - Do not add drugs, doses, numbers, or claims not in the card. Never tell anyone to start, stop, or change a medicine. Explain why the topic matters without giving treatment instructions.
 - Return exactly one JSON object with a "points" array. No markdown, <think> blocks, reasoning text, or text outside the JSON. Every entry must include an eligible card_id. Use this exact structure: {"points":[{"card_id":"E2","point":"...","rationale":"..."}]}`;
   const user = JSON.stringify({ caregiver_inputs: input, eligible_cards: cards });
@@ -66,7 +77,7 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
           conditions: (Array.isArray(body.conditions) ? body.conditions : []).map(String).slice(0, 3) as BriefInput["conditions"],
           hfType: typeof body.hfType === "string" ? body.hfType.slice(0, 40) : undefined,
           medicines: (Array.isArray(body.medicines) ? body.medicines : []).map((m) => String(m).slice(0, 80)).slice(0, 30),
-          numbers: typeof body.numbers === "object" && body.numbers ? (body.numbers as Record<string, string>) : {},
+          numbers: sanitizeNumbers(body.numbers),
           worry: typeof body.worry === "string" ? body.worry.slice(0, MAX_WORRY_CHARS) : "",
         };
         const eligible = filterEligible(EVIDENCE_PACK.cards as unknown as Card[], input.conditions, input.medicines);
@@ -84,7 +95,7 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
             method: "POST",
             headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
             body: JSON.stringify({
-              model, temperature: 0.2, max_tokens: 2400,
+              model, temperature: 0, max_tokens: 2400,
               response_format: { type: "json_object" },
               ...(/nemotron/i.test(model) ? { chat_template_kwargs: { enable_thinking: false } } : {}),
               messages: [{ role: "system", content: system }, { role: "user", content: user }],

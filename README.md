@@ -28,7 +28,7 @@ Class dedupe and backfill (`src/lib/navigator.ts`, shared by the model path and 
 ## How Nemotron and Nebius Token Factory are used
 
 - Server endpoint: `src/routes/api/public/navigator-brief.ts` (`POST /api/public/navigator-brief`), running server-side on Lovable Cloud hosting. The evidence pack is embedded at `src/server/evidence-pack.ts` (a test checks it matches `src/data/evidence-pack.json`).
-- Base URL `https://api.tokenfactory.nebius.com/v1`, OpenAI-compatible `POST /chat/completions`, `temperature 0.2`, `max_tokens 2400`, 45 s timeout.
+- Base URL `https://api.tokenfactory.nebius.com/v1`, OpenAI-compatible `POST /chat/completions`, `temperature 0`, `max_tokens 2400`, 45 s timeout.
 - JSON mode: requests set `response_format: {"type": "json_object"}`, and the prompt requires one object of the form `{"points":[{"card_id","point","rationale"}]}`. The validator still strips code fences and `<think>` blocks before parsing, and rejects anything that does not parse.
 - Thinking off: for Nemotron models the request sends `chat_template_kwargs: {"enable_thinking": false}`, so the token budget goes to the JSON brief instead of reasoning text.
 - Model selection: `NEBIUS_MODEL` if set; otherwise `GET /v1/models`, keep ids containing "nemotron", prefer "super", then "nano", then the first. Cached in memory. The model id and latency are returned and shown in the UI.
@@ -77,6 +77,8 @@ Add the secret `NEBIUS_API_KEY` in Project Settings → Secrets (optional `NEBIU
 - Always-visible emergency banner (call 911).
 - Deterministic eligibility filter and validator around the model; model output limited to card IDs and phrasing.
 - Prompt forbids new drugs, doses, numbers, or start/stop/change advice; everything is framed as a question.
+- Point checks in code (`src/lib/navigator.ts`): a point that adds a number, medicine, dose word, safety claim, benefit, or certainty word ("required", "must") its card does not support is replaced with the card's own wording. Rationales get the same checks and are dropped if they fail.
+- Numbers are limited to the five known lab fields, and the endpoint has a body-size cap and a per-IP rate limit.
 - Fallback to rule-based selection on any error, clearly labeled.
 - No login, no storage, no analytics. Inputs live in the browser tab and are sent once to the model.
 

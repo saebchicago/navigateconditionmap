@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import pack from "@/data/evidence-pack.json";
 import { EVIDENCE_PACK } from "@/server/evidence-pack";
-import { filterEligible, validateModelOutput, fallbackPoints, checkPoint, standardPoint, MEDICINE_TERMS, type BriefInput, type Card } from "@/lib/navigator";
+import { filterEligible, validateModelOutput, fallbackPoints, checkPoint, checkRationale, standardPoint, MEDICINE_TERMS, type BriefInput, type Card } from "@/lib/navigator";
 
 const cards = pack.cards as Card[];
 
@@ -102,6 +102,27 @@ describe("point fidelity", () => {
   });
   it("keeps a point without your or yours", () => {
     expect(checkPoint("Discuss kidney safety for the person you care for.", card, input).standardized).toBe(false);
+  });
+  it("standardizes benefit or certainty words the card does not use", () => {
+    const bp = cards.find((c) => c.id === "E8");
+    const screening = cards.find((c) => c.id === "E1");
+    const hf = cards.find((c) => c.id === "E3");
+    if (!bp || !screening || !hf) throw new Error("Missing cards");
+    expect(checkPoint("A goal below 130/80 helps protect the heart and kidneys.", bp).standardized).toBe(true);
+    expect(checkPoint("Yearly kidney screening is required for type 2 diabetes.", screening).standardized).toBe(true);
+    expect(checkPoint("An SGLT2 inhibitor can lower the risk of a heart failure hospital stay.", hf, { ...input, medicines: [] }).standardized).toBe(false);
+    const hfref = cards.find((c) => c.id === "E9");
+    const metformin = cards.find((c) => c.id === "E4");
+    if (!hfref || !metformin) throw new Error("Missing cards");
+    expect(checkPoint("This medicine can help lower the chance of going to the hospital for heart failure.", hfref).standardized).toBe(false);
+    expect(checkPoint("Metformin protects the kidneys.", metformin, input).standardized).toBe(true);
+    expect(checkPoint("For mildly reduced or preserved ejection fraction, ask about this medicine class.", screening).standardized).toBe(false);
+  });
+  it("drops a rationale that fails the card checks and names card IDs generically", () => {
+    const screening = cards.find((c) => c.id === "E1");
+    if (!screening) throw new Error("Missing card E1");
+    expect(checkRationale("E1 says screening is required every year.", screening)).toBe("");
+    expect(checkRationale("E1 covers yearly kidney screening for type 2 diabetes.", screening)).toBe("This card covers yearly kidney screening for type 2 diabetes.");
   });
   it("allows dose or dosing only when the selected guideline mentions dose", () => {
     expect(checkPoint("Ask whether the metformin dose needs to change.", card, input).standardized).toBe(false);
