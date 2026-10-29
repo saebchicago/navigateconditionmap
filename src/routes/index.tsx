@@ -575,6 +575,10 @@ function Brief({
   if (loading || !result) return <Loading />;
 
   const byId = new Map(CARDS.map((c) => [c.id, c]));
+  const hasCkd = answers.conditions.includes("ckd");
+  const hasT2d = answers.conditions.includes("type_2_diabetes");
+  const kidneyNote = hasCkd && !hasT2d;
+  const kidneyOnly = kidneyNote && answers.conditions.length === 1;
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -608,6 +612,13 @@ function Brief({
 
       <YouToldUs a={answers} />
 
+      {kidneyNote && result.points.length > 0 && (
+        <p className="mb-4 rounded-md border border-border bg-card p-3 text-sm">
+          <strong>About kidney disease:</strong> Navigator's kidney guideline cards are written for
+          people who also have type 2 diabetes, so none are shown for kidney disease without it.
+        </p>
+      )}
+
       {result.mode === "fallback" && (
         <p className="mb-4 rounded-md border-2 border-accent bg-accent/10 p-3 text-sm">
           {result.error === "rate_limited" ? (
@@ -626,8 +637,9 @@ function Brief({
 
       {result.points.length === 0 ? (
         <p className="card-surface p-5">
-          None of the guideline cards match these answers yet. The cards cover heart failure, type 2
-          diabetes, and kidney disease, and some depend on the medicines listed.
+          {kidneyOnly
+            ? "Navigator's guideline cards for kidney disease are written for people who also have type 2 diabetes, so there is nothing to show for kidney disease on its own yet. If the person also has type 2 diabetes or heart failure, go back and add it to get questions for those."
+            : "None of the guideline cards match these answers yet. Some cards depend on the medicines listed."}
         </p>
       ) : (
         <ol className="flex flex-col gap-4">

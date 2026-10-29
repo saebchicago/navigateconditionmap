@@ -47,6 +47,12 @@ bun run build      # production build
 
 Add the secret `NEBIUS_API_KEY` in Project Settings → Secrets (optional `NEBIUS_MODEL`). Without a key the app shows the rule-based fallback with a visible notice.
 
+## Known limitations
+
+- Every kidney card requires type 2 diabetes, so kidney disease on its own returns no cards, and kidney disease with heart failure shows heart failure cards only. The app says so on screen.
+- Twelve cards from five guideline documents. This is not a complete clinical guideline set, and the cards have not had a clinician review.
+- The rate limit and the model-list cache live in one server instance's memory, so they are speed bumps, not hard quotas.
+
 ## Evidence sources
 
 - ADA/KDIGO 2022. Diabetes Management in CKD: A Consensus Report. de Boer IH, et al. doi:[10.2337/dci22-0027](https://doi.org/10.2337/dci22-0027)
