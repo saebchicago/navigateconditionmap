@@ -4,7 +4,7 @@ A caregiver appointment-brief tool for people living with heart failure, type 2 
 
 **Live demo:** https://navigateconditionmap.lovable.app
 
-**Try it:** no login needed and nothing is stored. Pick conditions, add medicines and recent numbers if you have them, and get a brief.
+**Try it:** no login needed, and this app does not store what you enter. Pick conditions, add medicines and recent numbers if you have them, and get a brief.
 
 **Educational only. Not medical advice.** Submission for the Nebius x NVIDIA Global AI Hackathon (Best Apps and Agents track).
 
@@ -28,7 +28,7 @@ Class dedupe and backfill (`src/lib/navigator.ts`, shared by the model path and 
 ## How Nemotron and Nebius Token Factory are used
 
 - Server endpoint: `src/routes/api/public/navigator-brief.ts` (`POST /api/public/navigator-brief`), running server-side on Lovable Cloud hosting. The evidence pack is embedded at `src/server/evidence-pack.ts` (a test checks it matches `src/data/evidence-pack.json`).
-- Base URL `https://api.tokenfactory.nebius.com/v1`, OpenAI-compatible `POST /chat/completions`, `temperature 0`, `max_tokens 2400`, 45 s timeout.
+- Base URL `https://api.tokenfactory.nebius.com/v1`, OpenAI-compatible `POST /chat/completions`, `temperature 0`, `max_tokens 2400`, 20 s timeout.
 - JSON mode: requests set `response_format: {"type": "json_object"}`, and the prompt requires one object of the form `{"points":[{"card_id","point","rationale"}]}`. The validator still strips code fences and `<think>` blocks before parsing, and rejects anything that does not parse.
 - Thinking off: for Nemotron models the request sends `chat_template_kwargs: {"enable_thinking": false}`, so the token budget goes to the JSON brief instead of reasoning text.
 - Model selection: `NEBIUS_MODEL` if set; otherwise `GET /v1/models`, keep ids containing "nemotron", prefer "super", then "nano", then the first. Cached in memory. The model id and latency are returned and shown in the UI.
@@ -83,10 +83,10 @@ Add the secret `NEBIUS_API_KEY` in Project Settings → Secrets (optional `NEBIU
 - Always-visible emergency banner (call 911).
 - Deterministic eligibility filter and validator around the model; model output limited to card IDs and phrasing.
 - Prompt forbids new drugs, doses, numbers, or start/stop/change advice; everything is framed as a question.
-- Point checks in code (`src/lib/navigator.ts`): a point that adds a number, medicine, dose word, safety claim, benefit, or certainty word ("required", "must") its card does not support is replaced with the card's own wording. Rationales get the same checks and are dropped if they fail.
-- Numbers are limited to the five known lab fields, and the endpoint has a body-size cap and a per-IP rate limit.
+- Wording checks in code (`src/lib/navigator.ts`), lexical only: a point that adds a number, medicine or brand name, dose word, safety claim, benefit word, advice or certainty word ("stop", "start", "required", "must", "cure"), reassurance ("not urgent"), or a person reference its card does not support is replaced with the card's own wording. The checks do not verify meaning. Rationales get the same checks and are dropped if they fail.
+- Heart failure type is limited to the four UI options, numbers to the five known lab fields, and the endpoint has a body-size cap and a per-IP rate limit.
 - Fallback to rule-based selection on any error, clearly labeled.
-- No login, no storage, no analytics. Inputs live in the browser tab and are sent once to the model.
+- No login, and this app stores nothing you enter. It adds no analytics or cookies of its own. Inputs live in the browser tab and are sent once to the AI provider (Nebius) to make the page. The hosting platform (Lovable, behind Cloudflare) may load its own script and set a bot-protection cookie, and fonts load from Google Fonts.
 
 ## License
 

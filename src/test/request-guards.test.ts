@@ -59,6 +59,10 @@ describe("rate limiter", () => {
   it("reads the client IP from proxy headers", () => {
     expect(clientIp(req("{}", "198.51.100.7, 10.0.0.1"))).toBe("198.51.100.7");
     expect(
+      clientIp(new Request("http://localhost", { headers: { "x-forwarded-for": "6.6.6.6", "x-real-ip": "198.51.100.8", "cf-connecting-ip": "192.0.2.9" } })),
+    ).toBe("192.0.2.9");
+    expect(clientIp(new Request("http://localhost", { headers: { "x-forwarded-for": "6.6.6.6", "x-real-ip": "198.51.100.8" } }))).toBe("198.51.100.8");
+    expect(
       clientIp(new Request("http://localhost", { headers: { "cf-connecting-ip": "192.0.2.9" } })),
     ).toBe("192.0.2.9");
     expect(clientIp(new Request("http://localhost"))).toBe("unknown");

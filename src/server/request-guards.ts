@@ -48,10 +48,11 @@ export async function readJsonBody(
 /** First client IP from common proxy headers; "unknown" when none is present. */
 export function clientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  // cf-connecting-ip is set by Cloudflare; x-forwarded-for can be supplied by the client, so it is last.
   return (
     request.headers.get("cf-connecting-ip") ??
-    forwarded ??
     request.headers.get("x-real-ip") ??
+    forwarded ??
     "unknown"
   );
 }

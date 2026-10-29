@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import pack from "@/data/evidence-pack.json";
 import {
+  egfrNote,
   filterEligible,
   fallbackPoints,
   type BriefPoint,
@@ -412,7 +413,8 @@ function Index() {
             </p>
             <Nav back={() => go(1)} next={generate} nextLabel="Make my questions" />
             <p className="mt-3 text-right text-sm text-muted-foreground">
-              Your answers are sent once to make this page. Nothing is saved.
+              Your answers are sent once to the AI provider to make this page. This app does not
+              save them.
             </p>
           </section>
         )}
@@ -457,7 +459,11 @@ function Index() {
             Sources: ADA/KDIGO 2022, ESC 2023 heart failure update, AHA/ACC/HFSA 2022 heart failure
             guideline, ADA Standards of Care 2026. Guideline cards updated {longDate(pack.version)}.
           </p>
-          <p>No analytics, no cookies. Nothing you type is stored.</p>
+          <p>
+            This app does not store what you enter and adds no analytics or cookies of its own. Your
+            answers go once to the AI provider (Nebius) to make the page. The hosting platform may
+            load its own script and set a bot-protection cookie, and fonts load from Google Fonts.
+          </p>
         </div>
       </footer>
     </div>
@@ -586,7 +592,10 @@ function Brief({
   });
 
   return (
-    <section aria-live="polite" className="mt-4">
+    <section className="mt-4">
+      <p role="status" className="sr-only">
+        Your questions are ready.
+      </p>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-serif text-3xl font-bold text-primary">Questions for the visit</h1>
@@ -670,6 +679,27 @@ function Brief({
                   </h2>
                 </div>
                 <p className="mt-2">{displayPoint(p.point, card.topic)}</p>
+                {(() => {
+                  const egfr = answers.unknown["egfr"]
+                    ? undefined
+                    : answers.numbers["egfr"]?.trim();
+                  const notes = [
+                    egfrNote(card, egfr),
+                    (card.id === "E3" || card.id === "E9") &&
+                    answers.conditions.includes("heart_failure") &&
+                    (!answers.hfType || answers.hfType === "Not sure")
+                      ? "You said the heart failure type is not sure. This card is written for a specific type. Ask the care team which type applies."
+                      : null,
+                  ].filter((n): n is string => n !== null);
+                  return notes.map((n) => (
+                    <p
+                      key={n}
+                      className="mt-2 rounded-md border border-accent bg-accent/10 p-2 text-sm"
+                    >
+                      <strong>Check this one:</strong> {n}
+                    </p>
+                  ));
+                })()}
                 <div className="mt-3 rounded-md border-l-4 border-accent bg-secondary p-4">
                   <p className="text-sm font-bold text-secondary-foreground">Ask the care team</p>
                   <p className="text-lg font-bold">“{card.question_for_clinician}”</p>

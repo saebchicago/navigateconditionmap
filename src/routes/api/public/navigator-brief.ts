@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { EVIDENCE_PACK } from "@/server/evidence-pack";
 import { MAX_WORRY_CHARS, RATE_LIMIT_MESSAGE, clientIp, createRateLimiter, readJsonBody } from "@/server/request-guards";
-import { filterEligible, fallbackPoints, validateModelOutput, type BriefInput, type Card } from "@/lib/navigator";
+import { filterEligible, fallbackPoints, validateModelOutput, sanitizeHfType, type BriefInput, type Card } from "@/lib/navigator";
 
 // Public endpoint: no auth, stores nothing, returns only evidence-pack derived content.
 const BASE = "https://api.tokenfactory.nebius.com/v1";
@@ -75,7 +75,7 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
 
         const input: BriefInput = {
           conditions: (Array.isArray(body.conditions) ? body.conditions : []).map(String).slice(0, 3) as BriefInput["conditions"],
-          hfType: typeof body.hfType === "string" ? body.hfType.slice(0, 40) : undefined,
+          hfType: sanitizeHfType(body.hfType),
           medicines: (Array.isArray(body.medicines) ? body.medicines : []).map((m) => String(m).slice(0, 80)).slice(0, 30),
           numbers: sanitizeNumbers(body.numbers),
           worry: typeof body.worry === "string" ? body.worry.slice(0, MAX_WORRY_CHARS) : "",
@@ -100,7 +100,7 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
               ...(/nemotron/i.test(model) ? { chat_template_kwargs: { enable_thinking: false } } : {}),
               messages: [{ role: "system", content: system }, { role: "user", content: user }],
             }),
-            signal: AbortSignal.timeout(45000),
+            signal: AbortSignal.timeout(20000),
           });
           const latency_ms = Date.now() - t0;
           if (!r.ok) return fallback(`model_http_${r.status}`, { model, latency_ms });

@@ -76,18 +76,21 @@ export function orderByHfType(eligible: Card[], hfType?: string): Card[] {
   return out;
 }
 
-export const MEDICINE_TERMS = ["metformin", "sglt2", "empagliflozin", "dapagliflozin", "canagliflozin", "finerenone", "glp-1", "semaglutide", "liraglutide", "dulaglutide", "tirzepatide", "pioglitazone", "insulin", "ace inhibitor", "arb", "lisinopril", "losartan", "sacubitril", "entresto", "spironolactone", "eplerenone", "beta blocker", "furosemide", "diuretic"] as const;
+export const MEDICINE_TERMS = ["metformin", "sglt2", "empagliflozin", "dapagliflozin", "canagliflozin", "finerenone", "glp-1", "semaglutide", "liraglutide", "dulaglutide", "tirzepatide", "pioglitazone", "insulin", "ace inhibitor", "arb", "lisinopril", "losartan", "sacubitril", "entresto", "spironolactone", "eplerenone", "beta blocker", "furosemide", "diuretic", "jardiance", "farxiga", "invokana", "kerendia", "ozempic", "wegovy", "rybelsus", "trulicity", "mounjaro", "victoza", "lasix", "zestril", "cozaar", "glucophage", "actos"] as const;
 const SGLT2_IDS = new Set(["E2", "E3", "E9", "E11"]);
 const NSMRA_IDS = new Set(["E6", "E10"]);
 const CLASS_GROUPS = [SGLT2_IDS, NSMRA_IDS];
 const classOf = (id: string) => CLASS_GROUPS.find((g) => g.has(id));
 const SAFETY_CLAIM = /\b(safe|safely|safer|safest|harmless|risk[-\s]free|no\s+risk|guaranteed?)\b/i;
 const DOSING = /\b(dose|doses|dosing)\b/i;
-const RELATIONSHIPS = /\b(mom|mother|dad|father|wife|husband|her|his|him|she|he|we|i|my|me|mine|our|us|your|yours|loved\s+one)\b/i;
+const RELATIONSHIPS = /\b(mom|mother|dad|father|wife|husband|son|daughter|partner|spouse|mr|mrs|ms|her|hers|his|him|she|he|we|i|my|me|mine|our|us|your|yours|loved\s+one)\b/i;
+// Reassurance or urgency judgments no card makes; always rejected.
+const DOWNPLAY = /\b(not\s+urgent|no\s+need|nothing\s+to\s+worry|do\s+not\s+worry|don'?t\s+worry|safe\s+to\s+ignore|can\s+wait|emergency|dangerous(?:ly)?)\b/i;
 // Benefit words are one family: a point may state a benefit only if its card states one.
 // Certainty words must appear in the card itself. Phrases that only look like claims are ignored.
 const BENEFIT_ROOTS = ["protect", "prevent", "benefit", "improv", "reduc", "lower", "slow", "help", "better"];
-const CERTAINTY_ROOTS = ["proven", "require", "must", "mandatory", "essential", "always", "never"];
+// Directive and cure words are in this family too: a point may use one only if its card does.
+const CERTAINTY_ROOTS = ["proven", "require", "must", "mandatory", "essential", "always", "never", "start", "stop", "discontinu", "switch", "doubl", "halv", "cut", "increas", "rais", "cure", "should"];
 const NOT_CLAIMS = /\b(mildly\s+reduced|reduced\s+ejection|reduced\s+ef|lower\s+dose|slowly)\b/gi;
 const rootsIn = (roots: string[], text: string) => {
   const t = text.replace(NOT_CLAIMS, " ");
@@ -110,7 +113,7 @@ export function violatesCard(text: string, card: Card, input?: BriefInput): bool
   const allowedMedicines = `${card.guideline_says} ${(input?.medicines ?? []).join(" ")}`;
   const cardStatesBenefit = rootsIn(BENEFIT_ROOTS, card.guideline_says).length > 0;
   const cardCertainty = new Set(rootsIn(CERTAINTY_ROOTS, card.guideline_says));
-  return !text.trim() || RELATIONSHIPS.test(text)
+  return !text.trim() || RELATIONSHIPS.test(text) || DOWNPLAY.test(text)
     || (DOSING.test(text) && !card.guideline_says.toLowerCase().includes("dose"))
     || (SAFETY_CLAIM.test(text) && !SAFETY_CLAIM.test(card.guideline_says))
     || (!cardStatesBenefit && rootsIn(BENEFIT_ROOTS, text).length > 0)
@@ -119,7 +122,7 @@ export function violatesCard(text: string, card: Card, input?: BriefInput): bool
     || MEDICINE_TERMS.some((term) => containsTerm(text, term) && !containsTerm(allowedMedicines, term));
 }
 
-/** Exact lexical guard, not a claim that all generated semantics are verified. */
+/** Lexical guard only: it checks wording against the card, not whether the meaning is correct. */
 export function checkPoint(point: string, card: Card, input?: BriefInput): { point: string; standardized: boolean } {
   return violatesCard(point, card, input) ? { point: standardPoint(card), standardized: true } : { point, standardized: false };
 }
@@ -198,4 +201,25 @@ export function validateModelOutput(raw: string, eligible: Card[], input?: Brief
     });
   }
   return out.length ? diversePoints(out, eligible) : null;
+}
+
+/** Lowest eGFR a card names ("eGFR is at least 30"), read from the card text, or null. */
+export function egfrFloor(card: Card): number | null {
+  const m = card.guideline_says.match(/eGFR\s+(?:is\s+|of\s+)?at\s+least\s+(\d+(?:\.\d+)?)/i);
+  return m?.[1] ? Number(m[1]) : null;
+}
+
+/** Note shown under a card when the caregiver's eGFR is below the level the card names. */
+export function egfrNote(card: Card, egfrInput: string | undefined): string | null {
+  const floor = egfrFloor(card);
+  const value = egfrInput && /^\s*\d+(?:\.\d+)?\s*$/.test(egfrInput) ? Number(egfrInput) : NaN;
+  if (floor === null || Number.isNaN(value) || value >= floor) return null;
+  return `The eGFR you entered (${value}) is below the level this guideline names (${floor}). Ask the care team whether it applies.`;
+}
+
+export const HF_TYPE_OPTIONS = ["Reduced EF", "Mildly reduced EF", "Preserved EF", "Not sure"] as const;
+
+/** Only the four UI values may reach the prompt; anything else is dropped. */
+export function sanitizeHfType(value: unknown): string | undefined {
+  return typeof value === "string" && (HF_TYPE_OPTIONS as readonly string[]).includes(value) ? value : undefined;
 }
