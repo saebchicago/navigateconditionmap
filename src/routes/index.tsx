@@ -602,6 +602,42 @@ function Index() {
               2022 heart failure guideline, ADA Standards of Care 2026 (sections 10 and 11).
             </p>
           </details>
+          <details>
+            <summary className="focus-ring cursor-pointer font-bold">Why this exists</summary>
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              <li>
+                OpenAI reports, from its own ChatGPT usage data and a survey (January 2026), that
+                more than 5% of all ChatGPT messages are about healthcare, that over 40 million
+                people ask healthcare questions daily, and that seven in 10 health conversations
+                happen outside normal clinic hours.{" "}
+                <a
+                  href="https://cdn.openai.com/pdf/2cb29276-68cd-4ec6-a5f4-c01c5e7a36e9/OpenAI-AI-as-a-Healthcare-Ally-Jan-2026.pdf"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="focus-ring text-primary underline underline-offset-2"
+                >
+                  OpenAI report
+                </a>
+              </li>
+              <li>
+                The Anthropic Economic Index (May 2026 snapshot) matches 3.31% of sampled Claude
+                conversations to tasks commonly done by healthcare practitioners and technical
+                occupations. It does not measure health questions from patients or caregivers.{" "}
+                <a
+                  href="https://www.anthropic.com/economic-index"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="focus-ring text-primary underline underline-offset-2"
+                >
+                  Anthropic Economic Index
+                </a>
+              </li>
+            </ul>
+            <p className="mt-1">
+              These figures come from the companies' own data and show demand. They do not measure
+              whether Navigator helps.
+            </p>
+          </details>
           <p>
             This app saves nothing you enter and its own code adds no analytics or cookies. Your
             conditions, medicines, heart failure type, and concern go to the AI provider (Nebius)
