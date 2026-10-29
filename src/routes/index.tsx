@@ -28,7 +28,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Up to 3 questions for the next visit, each tied to a published guideline. Ranked by NVIDIA Nemotron, with the wording screened by rules in code.",
+          "Up to 3 questions for the next visit, each tied to a published guideline. Ordered by NVIDIA Nemotron. Every word shown comes from the guideline card.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
@@ -298,8 +298,8 @@ function Index() {
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 This prototype uses 12 guideline cards and has not yet been reviewed by a clinician.
-                It uses NVIDIA Nemotron on Nebius Token Factory to order the questions and draft one
-                explanation sentence for each.
+                It uses NVIDIA Nemotron on Nebius Token Factory to put the questions in order. All
+                wording comes from the guideline cards.
               </p>
             </div>
 
@@ -579,7 +579,8 @@ function Index() {
             conditions, medicines, heart failure type, and concern go to the AI provider (Nebius)
             each time you make a brief; test results stay in your browser. The hosting platform
             (Lovable) runs its own visitor analytics, which can include page views and clicks, and
-            sets a bot-protection cookie. Fonts load from Google Fonts.
+            sets a bot-protection cookie and an analytics session cookie. Nebius's retention of what
+            it receives is not stated here. Fonts load from Google Fonts.
           </p>
         </div>
       </footer>
@@ -967,10 +968,9 @@ function Brief({
         <summary className="focus-ring cursor-pointer font-bold">How this page was made</summary>
         <p className="mt-2">
           Rules select guideline cards that match your answers. NVIDIA Nemotron, an AI model run
-          through Nebius Token Factory, puts them in order and drafts a short explanation for each.
-          Code allows an explanation only if it uses words found in its own card. Otherwise it uses
-          the card's own wording. Your test results are not sent to the AI model. These checks look
-          at wording, not meaning, and are not a clinical review.
+          through Nebius Token Factory, puts them in order. Every question and explanation is the
+          guideline card's own wording, so the AI model writes none of the text you read. Your test
+          results are not sent to the AI model. This is not a clinical review.
         </p>
         <p className="mt-1">
           AI model: {result.mode === "nemotron" ? result.model : "none (rule-based)"}

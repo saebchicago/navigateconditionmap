@@ -94,6 +94,15 @@ const card = cards.find((c) => c.id === "E4");
 if (!card) throw new Error("Missing evidence card E4");
 
 describe("point fidelity", () => {
+  it("never shows a model sentence, even one made only of the card's own words", () => {
+    const points = validateModelOutput(
+      '{"points":[{"card_id":"E4","point":"Metformin is not recommended in type 2 diabetes with CKD."}]}',
+      filterEligible(cards, input.conditions, input.medicines),
+      input,
+    );
+    expect(points?.[0]?.point).toBe(standardPoint(card));
+    expect(points?.[0]?.standardized).toBe(true);
+  });
   it("ignores model questions and uses evidence questions verbatim", () => {
     const points = validateModelOutput(
       '{"points":[{"card_id":"E4","point":"Discuss metformin safety.","question":"typo or drift"}]}',

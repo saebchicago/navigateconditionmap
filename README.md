@@ -57,16 +57,16 @@ On the hosted version the key is set as a secret in the Lovable project settings
 
 ## Repository map
 
-| Path | What it is |
-|---|---|
-| `src/data/evidence-pack.json` | The 12 guideline cards and their sources (source of truth for all medical text) |
-| `src/server/evidence-pack.ts` | Server copy of the same pack (a test checks the two are identical) |
-| `src/lib/navigator.ts` | Card filter, model-output validator, wording checks, fallback |
+| Path                                       | What it is                                                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `src/data/evidence-pack.json`              | The 12 guideline cards and their sources (source of truth for all medical text)                                     |
+| `src/server/evidence-pack.ts`              | Server copy of the same pack (a test checks the two are identical)                                                  |
+| `src/lib/navigator.ts`                     | Card filter, model-output validator, wording checks, fallback                                                       |
 | `src/routes/api/public/navigator-brief.ts` | The server route that calls Nebius Token Factory (key read at line 64, `/chat/completions` call at lines 94 to 103) |
-| `src/server/request-guards.ts` | Body size cap and per-IP rate limit |
-| `src/routes/index.tsx` | The three-step form, results page, and print layout |
-| `scripts/eval` | 30 synthetic cases, the live runner, and the scorer |
-| `docs/screenshots` | Screenshots of the app with synthetic example answers |
+| `src/server/request-guards.ts`             | Body size cap and per-IP rate limit                                                                                 |
+| `src/routes/index.tsx`                     | The three-step form, results page, and print layout                                                                 |
+| `scripts/eval`                             | 30 synthetic cases, the live runner, and the scorer                                                                 |
+| `docs/screenshots`                         | Screenshots of the app with synthetic example answers                                                               |
 
 ## Screenshots
 
@@ -81,15 +81,15 @@ All screenshots use synthetic example answers, not a real person. The results pa
 
 `scripts/eval` runs 30 synthetic caregiver cases (no real patient data) against the live endpoint and scores the responses (`bun scripts/eval/score.ts scripts/eval/after-c9d432b.json`). Results, run Oct 29, 2026 (the result files are `baseline.json`, `after.json`, and `after-c9d432b.json`):
 
-| | Older build (`814a82d`) | Build `507bb50` | Current build (`c9d432b`) |
-|---|---|---|---|
-| Answered by Nemotron | 27 of 30 | 28 of 30 | 28 of 30 |
-| Fallback | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same kidney-only cases) | 2 (the same kidney-only cases) |
-| Model response time (server-measured) | median 1.9 s, p90 5.4 s, max 12.2 s | median 1.7 s, p90 5.1 s, max 13.8 s | median 1.5 s, p90 1.9 s, max 2.1 s |
-| Drafted sentences shown in the model's wording | 64 of 67 (96%) | 52 of 67 (78%) | 12 of 67 (18%) |
-| Replaced with the card's own wording | 3 | 15 | 55 |
-| Violations of 6 structural rules* | 0 | 0 | 0 |
-| Heart failure cards that did not fit the chosen type | see note | see note | 0 |
+|                                                      | Older build (`814a82d`)                                  | Build `507bb50`                     | Current build (`c9d432b`)          |
+| ---------------------------------------------------- | -------------------------------------------------------- | ----------------------------------- | ---------------------------------- |
+| Answered by Nemotron                                 | 27 of 30                                                 | 28 of 30                            | 28 of 30                           |
+| Fallback                                             | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same kidney-only cases)      | 2 (the same kidney-only cases)     |
+| Model response time (server-measured)                | median 1.9 s, p90 5.4 s, max 12.2 s                      | median 1.7 s, p90 5.1 s, max 13.8 s | median 1.5 s, p90 1.9 s, max 2.1 s |
+| Drafted sentences shown in the model's wording       | 64 of 67 (96%)                                           | 52 of 67 (78%)                      | 12 of 67 (18%)                     |
+| Replaced with the card's own wording                 | 3                                                        | 15                                  | 55                                 |
+| Violations of 6 structural rules*                    | 0                                                        | 0                                   | 0                                  |
+| Heart failure cards that did not fit the chosen type | see note                                                 | see note                            | 0                                  |
 
 *At most 3 points, at most one card per medicine class, only eligible cards, questions verbatim from the card, no milligram dose, no relationship words.
 
@@ -116,17 +116,17 @@ The runner sends 30 live requests paced 62 seconds apart (about 31 minutes; `EVA
 
 The hackathon submission period began on August 26, 2026. This repository was created on October 28, 2026, and every commit in it is dated October 28 or 29, 2026. An earlier prototype (a Netlify and Tavily version) is in `saebchicago/conditionmap-navigator`, also from October 28. The history here is:
 
-| Date | Commit | Change |
-|---|---|---|
-| Oct 28 | `2ed2f96` | v1.0: evidence-pack pipeline, Nemotron ranking, validator, fallback |
-| Oct 28 | `814a82d` | Evidence wording fixes, request guards, README accuracy |
-| Oct 29 | `693a655` | Interface pass: personal results summary, print fixes, new identity |
-| Oct 29 | `4be4b12` | Stricter claim checks, steadier output, evaluation scripts |
-| Oct 29 | `f85f9d8` | Baseline evaluation results |
-| Oct 29 | `18d217d` | Explain the kidney-only gap on screen |
-| Oct 29 | `6cfd533` | Honest privacy copy, advice-word checks, input whitelist, print fix |
+| Date   | Commit    | Change                                                                                       |
+| ------ | --------- | -------------------------------------------------------------------------------------------- |
+| Oct 28 | `2ed2f96` | v1.0: evidence-pack pipeline, Nemotron ranking, validator, fallback                          |
+| Oct 28 | `814a82d` | Evidence wording fixes, request guards, README accuracy                                      |
+| Oct 29 | `693a655` | Interface pass: personal results summary, print fixes, new identity                          |
+| Oct 29 | `4be4b12` | Stricter claim checks, steadier output, evaluation scripts                                   |
+| Oct 29 | `f85f9d8` | Baseline evaluation results                                                                  |
+| Oct 29 | `18d217d` | Explain the kidney-only gap on screen                                                        |
+| Oct 29 | `6cfd533` | Honest privacy copy, advice-word checks, input whitelist, print fix                          |
 | Oct 29 | `507bb50` | Trust and visit-day pass: hidden ranking commentary, kidney-only notice, compact print brief |
-| Oct 29 | `973eeac` | Post-publish evaluation results |
+| Oct 29 | `973eeac` | Post-publish evaluation results                                                              |
 
 Parts of the code were written with AI coding assistants (Claude Code and Lovable). The author made the product, content, and safety decisions and reviewed the changes.
 
@@ -154,20 +154,20 @@ What would help:
 
 ### Evidence cards
 
-| Card | Topic | Shown when | Source |
-|---|---|---|---|
-| E1 | Kidney screening | Type 2 diabetes | ADA/KDIGO 2022 |
-| E2 | SGLT2 inhibitor for kidney protection | Type 2 diabetes + CKD | ADA/KDIGO 2022 |
-| E3 | SGLT2 inhibitor in heart failure | Heart failure | ESC 2023 |
-| E4 | Metformin and kidney function | Type 2 diabetes + CKD, taking metformin | ADA/KDIGO 2022 |
-| E5 | ACE inhibitor or ARB with albuminuria | Type 2 diabetes + CKD | ADA/KDIGO 2022 |
-| E6 | Finerenone | Type 2 diabetes + CKD | ADA/KDIGO 2022 |
-| E7 | GLP-1 receptor agonist | Type 2 diabetes + CKD | ADA Standards 2026, Sec 11 |
-| E8 | Blood pressure target | Type 2 diabetes | ADA Standards 2026, Sec 10 |
-| E9 | SGLT2 inhibitor in reduced ejection fraction | Heart failure | AHA/ACC/HFSA 2022 |
-| E10 | Nonsteroidal MRA in heart failure with ejection fraction above 40% | Heart failure + type 2 diabetes | ADA Standards 2026, Sec 10 |
-| E11 | SGLT2 inhibitor to prevent heart failure | Type 2 diabetes + CKD | ESC 2023 |
-| E12 | SGLT2 inhibitor and finerenone together | Type 2 diabetes + CKD | ADA Standards 2026, Sec 11 |
+| Card | Topic                                                              | Shown when                              | Source                     |
+| ---- | ------------------------------------------------------------------ | --------------------------------------- | -------------------------- |
+| E1   | Kidney screening                                                   | Type 2 diabetes                         | ADA/KDIGO 2022             |
+| E2   | SGLT2 inhibitor for kidney protection                              | Type 2 diabetes + CKD                   | ADA/KDIGO 2022             |
+| E3   | SGLT2 inhibitor in heart failure                                   | Heart failure                           | ESC 2023                   |
+| E4   | Metformin and kidney function                                      | Type 2 diabetes + CKD, taking metformin | ADA/KDIGO 2022             |
+| E5   | ACE inhibitor or ARB with albuminuria                              | Type 2 diabetes + CKD                   | ADA/KDIGO 2022             |
+| E6   | Finerenone                                                         | Type 2 diabetes + CKD                   | ADA/KDIGO 2022             |
+| E7   | GLP-1 receptor agonist                                             | Type 2 diabetes + CKD                   | ADA Standards 2026, Sec 11 |
+| E8   | Blood pressure target                                              | Type 2 diabetes                         | ADA Standards 2026, Sec 10 |
+| E9   | SGLT2 inhibitor in reduced ejection fraction                       | Heart failure                           | AHA/ACC/HFSA 2022          |
+| E10  | Nonsteroidal MRA in heart failure with ejection fraction above 40% | Heart failure + type 2 diabetes         | ADA Standards 2026, Sec 10 |
+| E11  | SGLT2 inhibitor to prevent heart failure                           | Type 2 diabetes + CKD                   | ESC 2023                   |
+| E12  | SGLT2 inhibitor and finerenone together                            | Type 2 diabetes + CKD                   | ADA Standards 2026, Sec 11 |
 
 ## Safety design
 
@@ -177,7 +177,7 @@ What would help:
 - Allowlist check (`src/lib/navigator.ts`, `outsideVocabulary`): a drafted sentence is shown only if every word is a plain function word or appears in its own card (matched on the first five letters). Anything else, including other languages, look-alike or hidden characters, new medicines or brand names, new numbers, commands, reassurance, and benefit or advice words, is replaced with the card's own first sentence. Blocklists for advice, certainty, benefit, and person words add a second layer. This checks wording, not meaning: a sentence made only of a card's words can still recombine them, so the cards need clinician review.
 - Test results are not sent to the model. The model ranks using conditions, medicines, heart failure type, and the caregiver's concern. A card that names an eGFR level or potassium shows a note that asks the caregiver to bring the latest result to the care team; it does not compare the caregiver's number with the card.
 - The model's per-card ranking explanation (`rationale`) is generated but not shown in the interface.
-- Inputs are limited server-side: conditions to the three known keys, heart failure type to the four UI options, numbers to five known fields, and the endpoint has a body-size cap and a per-IP rate limit (30 requests per 10 minutes).
+- Inputs are limited server-side: conditions to the three known keys, heart failure type to the four UI options, numbers to five known fields, and the endpoint has a body-size cap and a per-IP rate limit (60 requests per 10 minutes).
 - Fallback to rule-based selection on any error, clearly labeled.
 - This app saves nothing you enter, and its own code adds no analytics or cookies. Conditions, medicines, heart failure type, and the caregiver's concern are sent through this app's server to the AI provider (Nebius) each time a brief is made; test results stay in the browser. The hosting platform (Lovable, behind Cloudflare) runs its own visitor analytics, which can include page views and clicks, and sets a bot-protection cookie. Fonts load from Google Fonts. What Nebius and the hosting platform retain has not been verified.
 

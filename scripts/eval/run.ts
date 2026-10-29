@@ -5,7 +5,9 @@ import { writeFileSync } from "node:fs";
 import { CASES } from "./cases";
 
 const base = process.argv[2] ?? "https://navigateconditionmap.lovable.app";
-const out = process.argv[3] ?? `scripts/eval/results-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.json`;
+const out =
+  process.argv[3] ??
+  `scripts/eval/results-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.json`;
 const paceMs = Number(process.env["EVAL_PACE_MS"] ?? 62000);
 const results: unknown[] = [];
 
@@ -15,7 +17,11 @@ for (const [i, c] of CASES.entries()) {
   let status = 0;
   let body: unknown = null;
   try {
-    const r = await fetch(`${base}/api/public/navigator-brief`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+    const r = await fetch(`${base}/api/public/navigator-brief`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
     status = r.status;
     body = await r.json();
   } catch (e) {

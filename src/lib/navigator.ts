@@ -402,7 +402,10 @@ export function validateModelOutput(
     const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     out.push({
       card_id: id,
-      ...checkPoint(s((p as BriefPoint).point), card, input),
+      // The model only chooses and orders cards. A drafted sentence can reverse a card
+      // while using only its words ("is not recommended"), so it is never shown.
+      point: standardPoint(card),
+      standardized: true,
       question: card.question_for_clinician,
       rationale: checkRationale(s((p as BriefPoint).rationale), card, input),
     });

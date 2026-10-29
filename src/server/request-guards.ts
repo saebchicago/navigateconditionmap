@@ -1,7 +1,7 @@
 // Request guards for the public brief endpoint: body size cap and a simple in-memory per-IP rate limit.
 export const MAX_BODY_BYTES = 8 * 1024;
 export const MAX_WORRY_CHARS = 300;
-export const RATE_LIMIT = 30;
+export const RATE_LIMIT = 60;
 export const RATE_WINDOW_MS = 10 * 60 * 1000;
 export const RATE_LIMIT_MESSAGE =
   "You have made several briefs in a short time. Please wait a few minutes and try again.";
