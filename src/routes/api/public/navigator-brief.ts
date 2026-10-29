@@ -13,6 +13,7 @@ import {
   validateModelOutput,
   sanitizeHfType,
   type BriefInput,
+  type BriefPoint,
   type Card,
 } from "@/lib/navigator";
 
@@ -59,6 +60,9 @@ async function selectModel(key: string): Promise<string> {
   cachedModel = pick;
   return pick;
 }
+
+/** The first three cards are the brief; the rest are offered through "Add another question". */
+const splitPoints = (all: BriefPoint[]) => ({ points: all.slice(0, 3), more: all.slice(3) });
 
 function buildPrompt(input: BriefInput, eligible: Card[]) {
   const cards = eligible.map(({ id, topic, guideline_says }) => ({ id, topic, guideline_says }));
@@ -133,7 +137,7 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
         if (!eligible.length) return json({ points: [], mode: "fallback", eligible_ids });
         const fallback = (error: string, extra: Record<string, unknown> = {}) =>
           json({
-            points: fallbackPoints(eligible, input.hfType),
+            ...splitPoints(fallbackPoints(eligible, input.hfType, 6)),
             mode: "fallback",
             error,
             eligible_ids,
@@ -174,9 +178,16 @@ export const Route = createFileRoute("/api/public/navigator-brief")({
             data.choices?.[0]?.message?.content ?? "",
             eligible,
             input,
+            6,
           );
           if (!points) return fallback("model_output_invalid", { model: used, latency_ms });
-          return json({ points, mode: "nemotron", model: used, latency_ms, eligible_ids });
+          return json({
+            ...splitPoints(points),
+            mode: "nemotron",
+            model: used,
+            latency_ms,
+            eligible_ids,
+          });
         } catch (e) {
           const msg =
             (e as Error).name === "TimeoutError" ? "model_timeout" : "model_request_failed";

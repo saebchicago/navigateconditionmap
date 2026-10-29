@@ -10,6 +10,7 @@ import {
   standardPoint,
   mentionsUrgentSymptoms,
   unusualNumber,
+  parseMedicines,
   floorNote,
   potassiumNote,
   sanitizeHfType,
@@ -393,6 +394,33 @@ describe("current medicines", () => {
     expect(ids(["no metformin, lisinopril"])).not.toContain("E4");
     expect(ids(["metformin and lisinopril"])).toContain("E4");
     expect(ids(["metformin"])).toContain("E4");
+  });
+});
+
+describe("medicine confirmation", () => {
+  it("separates counted medicines from entries left out", () => {
+    expect(parseMedicines(["lisinopril, no metformin", "furosemide"])).toEqual({
+      current: ["lisinopril", "furosemide"],
+      skipped: ["no metformin"],
+    });
+    const r = parseMedicines(["metformin, no longer taking"]);
+    expect(r.current).toEqual([]);
+    expect(r.skipped).toContain("metformin");
+  });
+});
+
+describe("more questions beyond the first three", () => {
+  it("returns a longer diverse list when asked", () => {
+    const eligible = filterEligible(
+      cards,
+      ["heart_failure", "type_2_diabetes", "ckd"],
+      ["metformin", "finerenone"],
+    );
+    const six = fallbackPoints(eligible, "Preserved EF", 6);
+    const ids = six.map((p) => p.card_id);
+    expect(ids.length).toBeGreaterThan(3);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.slice(0, 3)).toEqual(fallbackPoints(eligible, "Preserved EF").map((p) => p.card_id));
   });
 });
 

@@ -6,6 +6,7 @@ import {
   potassiumNote,
   filterEligible,
   mentionsUrgentSymptoms,
+  parseMedicines,
   unusualNumber,
   fallbackPoints,
   type BriefPoint,
@@ -138,6 +139,7 @@ const displayPoint = (point: string, topic: string) =>
   point.startsWith(`${topic}: `) ? point.slice(topic.length + 2) : point;
 interface Result {
   points: BriefPoint[];
+  more?: BriefPoint[];
   mode: "nemotron" | "fallback";
   model?: string;
   latency_ms?: number;
@@ -185,6 +187,8 @@ function Index() {
     .split("\n")
     .map((m) => m.trim())
     .filter(Boolean);
+
+  const parsedMeds = parseMedicines(medList);
 
   const go = (s: number) => {
     setStep(s);
@@ -434,6 +438,27 @@ function Index() {
               onChange={(e) => setMeds(e.target.value)}
               className="focus-ring w-full rounded-md border-2 border-input bg-card p-3"
             />
+            {medList.length > 0 && (
+              <div
+                className="mt-3 rounded-md border border-border bg-card p-3 text-sm"
+                aria-live="polite"
+              >
+                <p>
+                  <strong>Counted as medicines the person takes now:</strong>{" "}
+                  {parsedMeds.current.length ? parsedMeds.current.join(", ") : "none"}
+                </p>
+                {parsedMeds.skipped.length > 0 && (
+                  <p className="mt-1">
+                    <strong>Not counted</strong> (marked as stopped, not taken, or similar):{" "}
+                    {parsedMeds.skipped.join(", ")}. If that is wrong, write the medicine again on
+                    its own line without extra words.
+                  </p>
+                )}
+                <p className="mt-1 text-muted-foreground">
+                  Check this list against the medicine labels or with the care team.
+                </p>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-2" aria-label="Quick add medicines">
               {CHIPS.map((m) => {
                 const on = medList.some((x) => x.toLowerCase() === m);
@@ -671,7 +696,16 @@ function YouToldUs({ a, isExample }: { a: Answers; isExample: boolean }) {
         <dt className="font-bold">Conditions</dt>
         <dd>{conds.join(", ")}</dd>
         <dt className="font-bold">Medicines</dt>
-        <dd>{a.medList.length ? a.medList.join(", ") : "None listed"}</dd>
+        <dd>
+          {parseMedicines(a.medList).current.length
+            ? parseMedicines(a.medList).current.join(", ")
+            : "None listed"}
+          {parseMedicines(a.medList).skipped.length > 0 && (
+            <span className="block text-muted-foreground">
+              Not counted as current: {parseMedicines(a.medList).skipped.join(", ")}
+            </span>
+          )}
+        </dd>
         {nums.length > 0 && (
           <>
             <dt className="font-bold">Test results</dt>
@@ -715,6 +749,11 @@ function Brief({
   onEdit: () => void;
 }) {
   const ready = !loading && result !== null;
+  const [view, setView] = useState<{ src: Result | null; order: string[]; removed: string[] }>({
+    src: null,
+    order: [],
+    removed: [],
+  });
   useEffect(() => {
     if (ready) document.getElementById("results-heading")?.focus();
   }, [ready]);
@@ -722,6 +761,25 @@ function Brief({
   if (!ready || !result) return <Loading />;
 
   const byId = new Map(CARDS.map((c) => [c.id, c]));
+  const pool = new Map([...result.points, ...(result.more ?? [])].map((p) => [p.card_id, p]));
+  const cur =
+    view.src === result
+      ? view
+      : { src: result, order: result.points.map((p) => p.card_id), removed: [] as string[] };
+  const visible = cur.order.flatMap((id) => pool.get(id) ?? []);
+  const nextCandidate = [...pool.keys()].find(
+    (id) => !cur.order.includes(id) && !cur.removed.includes(id),
+  );
+  const update = (order: string[], removed: string[]) => setView({ src: result, order, removed });
+  const move = (i: number) => {
+    const o = [...cur.order];
+    const a = o[i - 1];
+    const b = o[i];
+    if (a === undefined || b === undefined) return;
+    o[i - 1] = b;
+    o[i] = a;
+    update(o, cur.removed);
+  };
   const hasCkd = answers.conditions.includes("ckd");
   const hasT2d = answers.conditions.includes("type_2_diabetes");
   const kidneyNote = hasCkd && !hasT2d;
@@ -840,7 +898,7 @@ function Brief({
               </p>
             )}
           <ol className="flex flex-col gap-4">
-            {result.points.map((p, i) => {
+            {visible.map((p, i) => {
               const card = byId.get(p.card_id);
               if (!card) return null;
               const src = SOURCES[card.source];
@@ -904,6 +962,29 @@ function Brief({
                       <strong>Check this one:</strong> {n}
                     </p>
                   ))}
+                  <div className="no-print mt-3 flex flex-wrap gap-2">
+                    {i > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => move(i)}
+                        className="focus-ring min-h-11 rounded-md border border-border bg-secondary px-3 text-sm font-bold"
+                      >
+                        Move up
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        update(
+                          cur.order.filter((id) => id !== p.card_id),
+                          [...cur.removed, p.card_id],
+                        )
+                      }
+                      className="focus-ring min-h-11 rounded-md border border-border bg-secondary px-3 text-sm font-bold"
+                    >
+                      Remove this question
+                    </button>
+                  </div>
                   <details className="no-print mt-3">
                     <summary className="focus-ring cursor-pointer font-bold text-primary">
                       Sources and guideline text
@@ -950,6 +1031,30 @@ function Brief({
               );
             })}
           </ol>
+          <div className="no-print mt-3 flex flex-wrap items-center gap-3" aria-live="polite">
+            {visible.length === 0 && (
+              <p className="text-sm">You removed every question. Restore them to see the list.</p>
+            )}
+            {nextCandidate && cur.order.length < 5 && (
+              <button
+                type="button"
+                onClick={() => update([...cur.order, nextCandidate], cur.removed)}
+                className="focus-ring min-h-11 rounded-md border-2 border-primary px-4 font-bold text-primary"
+              >
+                Add another question
+              </button>
+            )}
+            {cur.removed.length > 0 && (
+              <button
+                type="button"
+                onClick={() => update([...cur.order, ...cur.removed], [])}
+                className="focus-ring min-h-11 rounded-md border border-border bg-secondary px-4 text-sm font-bold"
+              >
+                Restore {cur.removed.length} removed{" "}
+                {cur.removed.length === 1 ? "question" : "questions"}
+              </button>
+            )}
+          </div>
         </>
       )}
 

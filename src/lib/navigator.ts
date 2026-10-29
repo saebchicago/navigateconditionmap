@@ -45,6 +45,8 @@ export interface BriefPoint {
 
 export interface BriefResult {
   points: BriefPoint[];
+  /** Further cards in the same order, for "Add another question". */
+  more?: BriefPoint[];
   mode: "nemotron" | "fallback";
   model?: string;
   latency_ms?: number;
@@ -69,21 +71,28 @@ const BRAND_TO_GENERIC: Record<string, string> = {
 // A medicine line counts as current only if nothing in it says otherwise. Missing a card is the safe direction.
 const NEGATED_MEDICINE =
   /\b(no|not|never|stopped|stop|stopping|off|discontinued|ex-|quit|used to|previously|formerly|allergic|allergy|intolerant|ran out|held|holding|paused|swapped|switched)\b|\bno longer\b|\bcame off\b/i;
-/** Current medicines from free text. Splits "lisinopril, no metformin" into entries; a negation with no medicine name
- *  ("metformin, no longer taking") also cancels the entry before it. */
-const currentMedicines = (medicines: string[]) => {
-  const kept: string[] = [];
+/** Medicines from free text, split into those counted as current and entries left out ("stopped", "no", "allergic").
+ *  A negation with no medicine name ("metformin, no longer taking") also cancels the entry before it. */
+export function parseMedicines(medicines: string[]): { current: string[]; skipped: string[] } {
+  const current: string[] = [];
+  const skipped: string[] = [];
+  const names = [...MEDICINE_TERMS, ...Object.keys(BRAND_TO_GENERIC)];
   for (const seg of medicines.flatMap((m) => m.split(/[,;\n]|\s+(?:and|plus)\s+/i))) {
-    if (!seg.trim()) continue;
-    if (NEGATED_MEDICINE.test(seg)) {
-      const names = [...MEDICINE_TERMS, ...Object.keys(BRAND_TO_GENERIC)];
-      if (!names.some((t) => seg.toLowerCase().includes(t))) kept.pop();
+    const text = seg.trim();
+    if (!text) continue;
+    if (NEGATED_MEDICINE.test(text)) {
+      skipped.push(text);
+      if (!names.some((t) => text.toLowerCase().includes(t))) {
+        const prev = current.pop();
+        if (prev) skipped.push(prev);
+      }
       continue;
     }
-    kept.push(seg);
+    current.push(text);
   }
-  return kept;
-};
+  return { current, skipped };
+}
+const currentMedicines = (medicines: string[]) => parseMedicines(medicines).current;
 const normalizeMedicine = (m: string) => {
   const lower = m.toLowerCase();
   const brand = Object.keys(BRAND_TO_GENERIC).find((b) => lower.includes(b));
@@ -335,7 +344,7 @@ export function checkRationale(rationale: string, card: Card, input?: BriefInput
 }
 
 /** Keep one card per medicine class (SGLT2, nonsteroidal MRA), use remaining model ranks, then fill from pack order. */
-function diversePoints(ranked: BriefPoint[], eligible: Card[]): BriefPoint[] {
+function diversePoints(ranked: BriefPoint[], eligible: Card[], limit = 3): BriefPoint[] {
   const result: BriefPoint[] = [];
   const seen = new Set<string>();
   const keptClasses = new Set<Set<string>>();
@@ -358,13 +367,13 @@ function diversePoints(ranked: BriefPoint[], eligible: Card[]): BriefPoint[] {
         ? eligible.filter((c) => group.has(c.id) && c.id !== point.card_id).map((c) => c.id)
         : [],
     });
-    if (result.length === 3) break;
+    if (result.length === limit) break;
   }
   return result;
 }
 
 /** Rule-based selection with diversity and verbatim evidence questions. */
-export function fallbackPoints(eligible: Card[], hfType?: string): BriefPoint[] {
+export function fallbackPoints(eligible: Card[], hfType?: string, limit = 3): BriefPoint[] {
   return diversePoints(
     orderByHfType(eligible, hfType).map((c) => ({
       card_id: c.id,
@@ -375,6 +384,7 @@ export function fallbackPoints(eligible: Card[], hfType?: string): BriefPoint[] 
       standardized: false,
     })),
     eligible,
+    limit,
   );
 }
 
@@ -390,6 +400,7 @@ export function validateModelOutput(
   raw: string,
   eligible: Card[],
   input?: BriefInput,
+  limit = 3,
 ): BriefPoint[] | null {
   const text = stripThink(raw)
     .replace(/^```(?:json)?\s*/i, "")
@@ -430,7 +441,7 @@ export function validateModelOutput(
       rationale: checkRationale(s((p as BriefPoint).rationale), card, input),
     });
   }
-  return out.length ? diversePoints(out, eligible) : null;
+  return out.length ? diversePoints(out, eligible, limit) : null;
 }
 
 /** Lowest eGFR a card names ("eGFR is at least 30"), read from the card text, or null. */
