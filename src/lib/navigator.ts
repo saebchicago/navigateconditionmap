@@ -438,7 +438,8 @@ export function validateModelOutput(
       standardized: true,
       matches_concern: (p as BriefPoint).matches_concern === true,
       question: card.question_for_clinician,
-      rationale: checkRationale(s((p as BriefPoint).rationale), card, input),
+      // Never shown or forwarded: model text is not part of the result.
+      rationale: "",
     });
   }
   return out.length ? diversePoints(out, eligible, limit) : null;

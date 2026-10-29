@@ -527,8 +527,8 @@ function Index() {
               What worries you most before this visit?
             </label>
             <p id="worry-hint" className="text-sm text-muted-foreground">
-              In your own words. Optional. Please do not include names, birth dates, or other
-              details that identify someone.
+              In your own words. Optional. Please do not include names, birth dates, test results,
+              or other details that identify someone. This text is sent to the AI provider.
             </p>
             <textarea
               id="worry"
@@ -1114,6 +1114,26 @@ function Brief({
           <span className="print-line" />
           <span className="print-line" />
         </div>
+      </section>
+
+      <section className="card-surface print-card mt-4 p-5">
+        <h2 className="font-serif text-xl font-semibold text-primary">After the visit</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your own notes. They are not checked by the care team. Write them by hand on the printout.
+        </p>
+        <ul className="mt-2 space-y-3">
+          {[
+            "What did the care team say?",
+            "Who will do what, and by when?",
+            "What do we still need explained?",
+            "Can we say the plan back to check that we understood?",
+          ].map((q) => (
+            <li key={q}>
+              <span className="font-bold">{q}</span>
+              <span className="print-line" />
+            </li>
+          ))}
+        </ul>
       </section>
 
       <p className="mt-5 rounded-md border border-border bg-card p-3 text-sm font-bold">
