@@ -23,7 +23,7 @@ flowchart LR
 
 The model never supplies text you read. It only orders card IDs. Guideline text, questions, sources, and labels are always rendered from the evidence pack.
 
-Class dedupe and backfill (`src/lib/navigator.ts`, shared by the model path and the fallback): the brief keeps at most one card per medicine class, SGLT2 inhibitors (E2, E3, E9, E11) and nonsteroidal MRAs (E6, E10). Other cards in the same class are listed as supporting cards. If the model ranks fewer than 3 usable topics, the remaining slots are filled from eligible cards in pack order, using the card's own guideline text. The fallback runs the same selection on eligible cards in pack order (for heart failure, E9 or E3 first depending on ejection fraction type), so it never needs the model.
+Class dedupe and backfill (`src/lib/navigator.ts`, shared by the model path and the fallback): the brief keeps at most one card per medicine class, SGLT2 inhibitors (E2, E3, E9, E11, E12) and nonsteroidal MRAs (E6, E10). Other cards in the same class are listed as supporting cards. If the model ranks fewer than 3 usable topics, the remaining slots are filled from eligible cards in pack order, using the card's own guideline text. The fallback runs the same selection on eligible cards in pack order (for heart failure, E9 or E3 first depending on ejection fraction type), so it never needs the model.
 
 ## How Nemotron and Nebius Token Factory are used
 
@@ -79,20 +79,24 @@ All screenshots use synthetic example answers, not a real person. The results pa
 
 ## Evaluation
 
-`scripts/eval` runs 30 synthetic caregiver cases (no real patient data) against the live endpoint and scores the responses (`bun scripts/eval/score.ts scripts/eval/after-791de5e.json`). Result files: `baseline.json` (build `814a82d`), `after.json` (`507bb50`), `after-c9d432b.json`, and `after-791de5e.json` (current build). All runs were on Oct 29, 2026.
+`scripts/eval` runs 30 synthetic caregiver cases (no real patient data) against the live endpoint and scores the responses (`bun scripts/eval/score.ts scripts/eval/after-019bcea.json`). Result files: `baseline.json` (build `814a82d`), `after.json` (`507bb50`), `after-c9d432b.json`, `after-791de5e.json`, and `after-019bcea.json` (current build). All runs were on Oct 29, 2026.
 
-|                                       | `814a82d`                                                | `507bb50`                           | `c9d432b`                          | Current (`791de5e`)                                               |
-| ------------------------------------- | -------------------------------------------------------- | ----------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| Answered by Nemotron                  | 27 of 30                                                 | 28 of 30                            | 28 of 30                           | 27 of 30                                                          |
-| Fallback                              | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same kidney-only cases)      | 2 (the same kidney-only cases)     | 3 (2 kidney-only cases, 1 unusable model output; 0 of 6 on retry) |
-| Model response time (server-measured) | median 1.9 s, p90 5.4 s, max 12.2 s                      | median 1.7 s, p90 5.1 s, max 13.8 s | median 1.5 s, p90 1.9 s, max 2.1 s | median 0.9 s, p90 1.6 s, max 1.9 s                                |
-| Model-written sentences shown         | 64 of 67 (96%)                                           | 52 of 67 (78%)                      | 12 of 67 (18%)                     | 0 (not shown by design)                                           |
-| Violations of 6 structural rules\*    | 0                                                        | 0                                   | 0                                  | 0                                                                 |
-| Heart failure cards that did not fit  | see note                                                 | see note                            | 0                                  | 0                                                                 |
+|                                       | `814a82d`                                                | `507bb50`                           | `c9d432b`                          | `791de5e`                                                         | Current (`019bcea`)                 |
+| ------------------------------------- | -------------------------------------------------------- | ----------------------------------- | ---------------------------------- | ----------------------------------------------------------------- | ----------------------------------- |
+| Answered by Nemotron                  | 27 of 30                                                 | 28 of 30                            | 28 of 30                           | 27 of 30                                                          | 28 of 30                            |
+| Fallback                              | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same kidney-only cases)      | 2 (the same kidney-only cases)     | 3 (2 kidney-only cases, 1 unusable model output; 0 of 6 on retry) | 2 (the kidney-only cases)           |
+| Model response time (server-measured) | median 1.9 s, p90 5.4 s, max 12.2 s                      | median 1.7 s, p90 5.1 s, max 13.8 s | median 1.5 s, p90 1.9 s, max 2.1 s | median 0.9 s, p90 1.6 s, max 1.9 s                                | median 0.9 s, p90 1.6 s, max 10.1 s |
+| Model-written sentences shown         | 64 of 67 (96%)                                           | 52 of 67 (78%)                      | 12 of 67 (18%)                     | 0 (not shown by design)                                           | 0 (not shown by design)             |
+| Violations of 6 structural rules\*    | 0                                                        | 0                                   | 0                                  | 0                                                                 | 0                                   |
+| Heart failure cards that did not fit  | see note                                                 | see note                            | 0                                  | 0                                                                 | 0                                   |
 
 \*At most 3 points, at most one card per medicine class, only eligible cards, questions verbatim from the card, no milligram dose, no relationship words.
 
-How the design changed: each stricter wording check replaced more of the model's sentences with the guideline's own wording (4%, 22%, then 82% replaced). An adversarial test of 171 unsafe sentences passed 159 through the earlier checker and 15 through the allowlist (13 were cards' own wording). A later audit then reproduced a reversal on the live site: a crafted concern field made the model write "Combining an ACE inhibitor with an ARB is advised for people with diabetes", which used only words from the card and passed the allowlist. A word check cannot catch negation or a swapped subject. In the current build (`791de5e`) the model orders cards and writes no text that is shown, and the same attack returns the card's own wording. The adversarial test script is not included in this repository. The scores cover structure and listed wording rules only. They do not establish clinical correctness, and thirty synthetic cases from one day is a small sample. The older runs sent test results to the endpoint; the server now ignores them.
+How the design changed: each stricter wording check replaced more of the model's sentences with the guideline's own wording (4%, 22%, then 82% replaced). An adversarial test of 171 unsafe sentences passed 159 through the earlier checker and 15 through the allowlist (13 were cards' own wording). A later audit then reproduced a reversal on the live site: a crafted concern field made the model write "Combining an ACE inhibitor with an ARB is advised for people with diabetes", which used only words from the card and passed the allowlist. A word check cannot catch negation or a swapped subject. From build `791de5e` on, the model orders cards and writes no text that is shown, and the same attack returns the card's own wording. The adversarial test script is not included in this repository. The scores cover structure and listed wording rules only. They do not establish clinical correctness, and thirty synthetic cases from one day is a small sample. The older runs sent test results to the endpoint; the server now ignores them.
+
+### Does Nemotron's ranking beat the rule-based fallback?
+
+`scripts/eval/ranking.ts` fixes eight situations and, for seven of them, a concern with a predefined expected card (chosen by the author before running). It then checks whether that card is in the top 3. Result on build `019bcea` (`scripts/eval/ranking.json`): Nemotron 7 of 7, rule fallback 3 of 7. Nemotron's ranking changes which cards appear in response to the concern; the fallback cannot. This is seven author-chosen cases, not a general measure of ranking quality, and it does not measure clinical usefulness. The model also returns a yes or no "matches the concern" flag per card, shown only as a fixed label.
 
 ### Running the evaluation yourself
 
@@ -113,21 +117,22 @@ The runner sends 30 live requests paced 62 seconds apart by default (about 31 mi
 
 The hackathon submission period began on August 26, 2026. This repository was created on October 28, 2026, and every commit in it is dated October 28 or 29, 2026. An earlier prototype (a Netlify and Tavily version) is in `saebchicago/conditionmap-navigator`, also from October 28. The history here is:
 
-| Date   | Commit    | Change                                                                                    |
-| ------ | --------- | ----------------------------------------------------------------------------------------- |
-| Oct 28 | `2ed2f96` | v1.0: evidence-pack pipeline, Nemotron ranking, validator, fallback                       |
-| Oct 28 | `814a82d` | Evidence wording fixes, request guards, README accuracy                                   |
-| Oct 29 | `693a655` | Interface pass: personal results summary, print fixes, new identity                       |
-| Oct 29 | `4be4b12` | Stricter claim checks, steadier output, evaluation scripts                                |
-| Oct 29 | `f85f9d8` | Baseline evaluation results                                                               |
-| Oct 29 | `18d217d` | Explain the kidney-only gap on screen                                                     |
-| Oct 29 | `6cfd533` | Privacy copy revised, advice-word checks, input whitelist, print fix                      |
-| Oct 29 | `507bb50` | Visit-day layout pass: hidden ranking commentary, kidney-only notice, compact print brief |
-| Oct 29 | `973eeac` | Post-publish evaluation results                                                           |
-| Oct 29 | `ac18309` | README, setup, CI, screenshots                                                            |
-| Oct 29 | `c9d432b` | Allowlist wording check, test results no longer sent to the model, audit fixes            |
-| Oct 29 | `6e3d772` | Evaluation results for the allowlist build                                                |
-| Oct 29 | `791de5e` | Model only orders cards; its sentences are never shown (fixes a reversal found in audit)  |
+| Date   | Commit    | Change                                                                                                             |
+| ------ | --------- | ------------------------------------------------------------------------------------------------------------------ |
+| Oct 28 | `2ed2f96` | v1.0: evidence-pack pipeline, Nemotron ranking, validator, fallback                                                |
+| Oct 28 | `814a82d` | Evidence wording fixes, request guards, README accuracy                                                            |
+| Oct 29 | `693a655` | Interface pass: personal results summary, print fixes, new identity                                                |
+| Oct 29 | `4be4b12` | Stricter claim checks, steadier output, evaluation scripts                                                         |
+| Oct 29 | `f85f9d8` | Baseline evaluation results                                                                                        |
+| Oct 29 | `18d217d` | Explain the kidney-only gap on screen                                                                              |
+| Oct 29 | `6cfd533` | Privacy copy revised, advice-word checks, input whitelist, print fix                                               |
+| Oct 29 | `507bb50` | Visit-day layout pass: hidden ranking commentary, kidney-only notice, compact print brief                          |
+| Oct 29 | `973eeac` | Post-publish evaluation results                                                                                    |
+| Oct 29 | `ac18309` | README, setup, CI, screenshots                                                                                     |
+| Oct 29 | `c9d432b` | Allowlist wording check, test results no longer sent to the model, audit fixes                                     |
+| Oct 29 | `6e3d772` | Evaluation results for the allowlist build                                                                         |
+| Oct 29 | `019bcea` | Current-medicine parsing, full card text, urgent-symptom notice, concern-match label, E12 grouped with SGLT2 cards |
+| Oct 29 | `791de5e` | Model only orders cards; its sentences are never shown (fixes a reversal found in audit)                           |
 
 Parts of the code were written with AI coding assistants (Claude Code and Lovable). The author made the product, content, and safety decisions and reviewed the changes.
 
@@ -174,10 +179,12 @@ What would help:
 
 - Always-visible emergency banner (call 911).
 - Deterministic eligibility filter around the model. When the heart failure type is known, cards written for a different type are dropped. Brand names that contain metformin trigger the metformin card; entries such as "no metformin" do not.
-- The model only chooses the order of the cards. Every question, explanation, and source shown is the evidence card's own wording. A model-drafted sentence can reverse a card using only that card's words, so none is shown.
+- The model only chooses the order of the cards and flags which cards match the caregiver's concern (a boolean, shown as a fixed label). Every question, explanation, and source shown is the evidence card's own wording, shown in full so that qualifications (for example, that an ACE inhibitor and an ARB are not advised together) stay beside the statement. A model-drafted sentence can reverse a card using only that card's words, so none is shown.
 - The allowlist check (`outsideVocabulary` in `src/lib/navigator.ts`) and the other wording checks remain in the code as a second layer, but the shown text no longer depends on them. Because the model writes nothing that is shown, the concern field can only change the order of real cards.
 - Test results are not sent to the model. The model ranks using conditions, medicines, heart failure type, and the caregiver's concern. A card that names an eGFR level or potassium shows a note that asks the caregiver to bring the latest result to the care team; it does not compare the caregiver's number with the card.
 - Inputs are limited server-side: conditions to the three known keys, heart failure type to the four UI options, numbers to five known fields, and the endpoint has a body-size cap and a per-IP rate limit (60 requests per 10 minutes).
+- A medicine line is treated as current only if nothing in it says otherwise ("stopped", "no", "used to take", "allergic", and similar), and lines are split on commas, semicolons, "and", and "plus". Wrongly dropping a card is the safe direction. Free text can still be misread, so confirm the medicine list with the care team.
+- If the concern field mentions symptoms such as chest pain or fainting, the results page shows a call-911 notice. The app does not assess symptoms. If no card matches the written concern, the page says so and points to "Your own questions".
 - Fallback to rule-based selection on any error, clearly labeled.
 - This app saves nothing you enter, and its own code adds no analytics or cookies. Conditions, medicines, heart failure type, and the caregiver's concern are sent through this app's server to the AI provider (Nebius) each time a brief is made; test results stay in the browser. The hosting platform (Lovable, behind Cloudflare) runs its own visitor analytics, which can include page views and clicks, and sets a bot-protection cookie and an analytics session cookie. Fonts load from Google Fonts. What Nebius and the hosting platform retain has not been verified.
 
