@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import pack from "@/data/evidence-pack.json";
 import {
-  egfrNote,
+  floorNote,
+  potassiumNote,
   filterEligible,
   fallbackPoints,
   type BriefPoint,
@@ -21,13 +22,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Up to 3 questions for a visit about heart failure, type 2 diabetes, or kidney disease, each tied to a published guideline. Free, no login, and this app does not store your answers. Educational only.",
+          "Up to 3 questions for a visit about heart failure, type 2 diabetes, or kidney disease, each tied to a published guideline or consensus report. Free, no login, and this app does not store your answers. Educational only.",
       },
       { property: "og:title", content: "Navigator by ConditionMap" },
       {
         property: "og:description",
         content:
-          "Up to 3 questions for the next visit, each tied to a published guideline. Ranked by NVIDIA Nemotron, checked in code.",
+          "Up to 3 questions for the next visit, each tied to a published guideline. Ranked by NVIDIA Nemotron, with the wording screened by rules in code.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
@@ -212,10 +213,12 @@ function Index() {
     go(3);
     setLoading(true);
     setResult(null);
-    const nums: Record<string, string> = {};
-    for (const n of NUMBERS)
-      nums[n.key] = unknown[n.key] ? "don't know" : numbers[n.key]?.trim() || "not provided";
-    const eligible = filterEligible(CARDS, conditions, medList);
+    const eligible = filterEligible(
+      CARDS,
+      conditions,
+      medList,
+      conditions.includes("heart_failure") ? hfType : undefined,
+    );
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30000);
     try {
@@ -227,7 +230,6 @@ function Index() {
           conditions,
           hfType: conditions.includes("heart_failure") ? hfType : undefined,
           medicines: medList,
-          numbers: nums,
           worry,
         }),
       });
@@ -291,12 +293,13 @@ function Index() {
               </h1>
               <p className="mt-2 text-muted-foreground">
                 Helping someone with heart failure, type 2 diabetes, or kidney disease? Answer three
-                short steps. Get up to 3 questions to ask the care team. Each one comes from a
-                published care guideline. You can print the list.
+                short steps. Get up to 3 questions to ask the care team. Each question is written
+                from a published guideline card. You can print the list.
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 This prototype uses 12 guideline cards and has not yet been reviewed by a clinician.
-                It uses NVIDIA Nemotron on Nebius Token Factory to order the questions.
+                It uses NVIDIA Nemotron on Nebius Token Factory to order the questions and draft one
+                explanation sentence for each.
               </p>
             </div>
 
@@ -513,8 +516,9 @@ function Index() {
             </p>
             <Nav back={() => go(1)} next={generate} nextLabel="Make my questions" />
             <p className="mt-3 text-right text-sm text-muted-foreground">
-              Your answers are sent to the AI provider (Nebius) to make this page. This app does not
-              save them.
+              Your conditions, medicines, heart failure type, and concern are sent to the AI
+              provider (Nebius) to make this page. Test results stay in your browser. This app does
+              not save anything you enter.
             </p>
           </section>
         )}
@@ -571,9 +575,11 @@ function Index() {
             </p>
           </details>
           <p>
-            This app does not store what you enter and adds no analytics or cookies of its own. Your
-            answers go to the AI provider (Nebius) to make the page. The hosting platform may load
-            its own script and set a bot-protection cookie, and fonts load from Google Fonts.
+            This app saves nothing you enter and its own code adds no analytics or cookies. Your
+            conditions, medicines, heart failure type, and concern go to the AI provider (Nebius)
+            each time you make a brief; test results stay in your browser. The hosting platform
+            (Lovable) runs its own visitor analytics, which can include page views and clicks, and
+            sets a bot-protection cookie. Fonts load from Google Fonts.
           </p>
         </div>
       </footer>
@@ -763,7 +769,7 @@ function Brief({
       </label>
 
       <p className="print-only mb-2 text-sm">
-        Patient name: ______________________________ Visit date: ________________
+        Name of the person you care for: ____________________ Visit date: ____________
       </p>
 
       <YouToldUs a={answers} isExample={isExample} />
@@ -780,7 +786,7 @@ function Brief({
         </p>
       )}
 
-      {result.mode === "fallback" && (
+      {result.mode === "fallback" && result.points.length > 0 && (
         <p className="mb-4 rounded-md border-2 border-accent bg-accent/10 p-3 text-sm">
           {result.error === "rate_limited" ? (
             <>
@@ -823,13 +829,17 @@ function Brief({
                   }),
                 ),
               ];
-              const egfr = answers.unknown["egfr"] ? undefined : answers.numbers["egfr"]?.trim();
-              const notes = [
-                egfrNote(card, egfr),
+              const hfUnknown =
                 (card.id === "E3" || card.id === "E9") &&
                 answers.conditions.includes("heart_failure") &&
-                (!answers.hfType || answers.hfType === "Not sure")
-                  ? "You said the heart failure type is not sure. This card is written for a specific type. Ask the care team which type applies."
+                (!answers.hfType || answers.hfType === "Not sure");
+              const notes = [
+                floorNote(card),
+                potassiumNote(card),
+                hfUnknown
+                  ? answers.hfType === "Not sure"
+                    ? "You said you are not sure of the heart failure type. This card is written for a specific type. Ask the care team which type applies."
+                    : "The heart failure type was not given. This card is written for a specific type. Ask the care team which type applies."
                   : null,
               ].filter((n): n is string => n !== null);
               return (
@@ -958,8 +968,9 @@ function Brief({
         <p className="mt-2">
           Rules select guideline cards that match your answers. NVIDIA Nemotron, an AI model run
           through Nebius Token Factory, puts them in order and drafts a short explanation for each.
-          Code checks the wording against each card. If it finds an added claim, it uses the card's
-          wording instead. These checks can miss mistakes and are not a clinical review.
+          Code allows an explanation only if it uses words found in its own card. Otherwise it uses
+          the card's own wording. Your test results are not sent to the AI model. These checks look
+          at wording, not meaning, and are not a clinical review.
         </p>
         <p className="mt-1">
           AI model: {result.mode === "nemotron" ? result.model : "none (rule-based)"}

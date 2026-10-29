@@ -73,22 +73,33 @@
   --card-foreground: oklch(0.22 0.02 220);
   --popover: oklch(0.995 0.003 80);
   --popover-foreground: oklch(0.22 0.02 220);
-  --primary: oklch(0.40 0.07 200);
+  --primary: oklch(0.4 0.07 200);
   --primary-foreground: oklch(0.98 0.005 80);
   --secondary: oklch(0.93 0.025 195);
-  --secondary-foreground: oklch(0.30 0.06 200);
+  --secondary-foreground: oklch(0.3 0.06 200);
   --muted: oklch(0.94 0.01 80);
   --muted-foreground: oklch(0.42 0.02 220);
   --accent: oklch(0.67 0.16 52);
-  --accent-foreground: oklch(0.20 0.03 50);
+  --accent-foreground: oklch(0.2 0.03 50);
   --destructive: oklch(0.52 0.2 27);
   --destructive-foreground: oklch(0.98 0 0);
   --success: oklch(0.45 0.11 155);
   --border: oklch(0.86 0.015 80);
-  --input: oklch(0.70 0.02 200);
+  --input: oklch(0.7 0.02 200);
   --ring: oklch(0.67 0.16 52);
-  --chart-1: oklch(0.40 0.07 200); --chart-2: oklch(0.67 0.16 52); --chart-3: oklch(0.6 0.08 180); --chart-4: oklch(0.8 0.1 80); --chart-5: oklch(0.5 0.05 220);
-  --sidebar: oklch(0.975 0.008 80); --sidebar-foreground: oklch(0.22 0.02 220); --sidebar-primary: oklch(0.40 0.07 200); --sidebar-primary-foreground: oklch(0.98 0.005 80); --sidebar-accent: oklch(0.93 0.025 195); --sidebar-accent-foreground: oklch(0.30 0.06 200); --sidebar-border: oklch(0.86 0.015 80); --sidebar-ring: oklch(0.67 0.16 52);
+  --chart-1: oklch(0.4 0.07 200);
+  --chart-2: oklch(0.67 0.16 52);
+  --chart-3: oklch(0.6 0.08 180);
+  --chart-4: oklch(0.8 0.1 80);
+  --chart-5: oklch(0.5 0.05 220);
+  --sidebar: oklch(0.975 0.008 80);
+  --sidebar-foreground: oklch(0.22 0.02 220);
+  --sidebar-primary: oklch(0.4 0.07 200);
+  --sidebar-primary-foreground: oklch(0.98 0.005 80);
+  --sidebar-accent: oklch(0.93 0.025 195);
+  --sidebar-accent-foreground: oklch(0.3 0.06 200);
+  --sidebar-border: oklch(0.86 0.015 80);
+  --sidebar-ring: oklch(0.67 0.16 52);
   --shadow-card: 0 1px 2px oklch(0.4 0.07 200 / 8%), 0 8px 24px -12px oklch(0.4 0.07 200 / 25%);
 }
 
@@ -97,7 +108,9 @@
     border-color: var(--color-border);
   }
 
-  html { font-size: 18px; }
+  html {
+    font-size: 18px;
+  }
   body {
     font-family: var(--font-sans);
     line-height: 1.55;
@@ -114,25 +127,65 @@
 }
 
 @utility focus-ring {
-  &:focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+  &:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 3px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-pulse { animation: none !important; }
+  .animate-pulse {
+    animation: none !important;
+  }
 }
 
-.print-only { display: none; }
+.print-only {
+  display: none;
+}
 @media print {
-  html { font-size: 11pt; }
-  body { line-height: 1.4; }
-  .print-exact { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .min-h-screen { min-height: 0 !important; }
-  main { padding-bottom: 0 !important; }
-  .no-print { display: none !important; }
-  .print-only { display: block; }
-  body { background: white; color: black; }
-  .print-card { box-shadow: none !important; border: 1px solid #999 !important; break-inside: avoid; padding: 6pt !important; margin-bottom: 3pt !important; }
-  .print-line { display: block; border-bottom: 1px solid #888; height: 15pt; }
-  a { color: black; text-decoration: none; }
-  @page { margin: 10mm; }
+  html {
+    font-size: 11pt;
+  }
+  body {
+    line-height: 1.4;
+  }
+  .print-exact {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .min-h-screen {
+    min-height: 0 !important;
+  }
+  main {
+    padding-bottom: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+  .print-card {
+    box-shadow: none !important;
+    border: 1px solid #999 !important;
+    break-inside: avoid;
+    padding: 6pt !important;
+    margin-bottom: 3pt !important;
+  }
+  .print-line {
+    display: block;
+    border-bottom: 1px solid #888;
+    height: 15pt;
+  }
+  a {
+    color: black;
+    text-decoration: none;
+  }
+  @page {
+    margin: 10mm;
+  }
 }

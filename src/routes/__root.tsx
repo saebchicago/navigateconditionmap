@@ -111,6 +111,11 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
+        <noscript>
+          <p style={{ padding: "1rem", textAlign: "center" }}>
+            This tool needs JavaScript to build your questions.
+          </p>
+        </noscript>
         {children}
         <Scripts />
       </body>

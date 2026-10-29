@@ -92,6 +92,8 @@ All screenshots use synthetic example answers, not a real person. The results pa
 
 *At most 3 points, at most one card per medicine class, only eligible cards, questions verbatim from the card, no milligram dose, no relationship words.
 
+Note: both runs above used checkers that were weaker than the current one. Replaying the saved current-build responses through the current allowlist checker would replace 34 of the 52 sentences that run kept (65%), so the share of model wording shown is now much lower than the 78% in the table. A fresh live run on the published current build will replace this table. The runner still sends test results; the server now ignores them.
+
 What this does and does not show: the stricter wording checks replace more of the model's sentences with the guideline's own wording (22% versus 4%). The scores cover structure and listed wording rules only. They do not establish clinical correctness. An independent keyword scan of the kept sentences still flagged 7 of 52 that paraphrase a benefit the card states in other words (for example "helps protect the kidneys" for the card on kidney benefit). Thirty synthetic cases from one run on one day is a small sample.
 
 ### Running the evaluation yourself
@@ -169,12 +171,14 @@ What would help:
 ## Safety design
 
 - Always-visible emergency banner (call 911).
-- Deterministic eligibility filter and validator around the model; model output limited to card IDs and phrasing.
-- Prompt forbids new drugs, doses, numbers, or start/stop/change advice. The explanation under each question is a statement; the question itself is always the card's own wording.
-- Wording checks in code (`src/lib/navigator.ts`), lexical only: a point that adds a number, medicine or brand name, dose word, safety claim, benefit word, advice or certainty word ("stop", "start", "required", "must", "cure"), reassurance ("not urgent"), or a person reference its card does not support is replaced with the card's own wording. The checks do not verify meaning. Numbers in a generated sentence must come from its card; the caregiver's own results are never restated or judged by the model (the page shows a deterministic note when an eGFR is below a card's named level). The model's per-card ranking explanation is generated but not shown in the interface. Rationales get the same checks and are dropped if they fail.
-- Heart failure type is limited to the four UI options, numbers to the five known lab fields, and the endpoint has a body-size cap and a per-IP rate limit.
+- Deterministic eligibility filter around the model. When the heart failure type is known, cards written for a different type are dropped. Brand names that contain metformin trigger the metformin card; entries such as "no metformin" do not.
+- The model only chooses the order of the cards and drafts one short explanation sentence for each. The question under each card is always the card's own wording, and guideline text and sources always come from the evidence pack.
+- Allowlist check (`src/lib/navigator.ts`, `outsideVocabulary`): a drafted sentence is shown only if every word is a plain function word or appears in its own card (matched on the first five letters). Anything else, including other languages, look-alike or hidden characters, new medicines or brand names, new numbers, commands, reassurance, and benefit or advice words, is replaced with the card's own first sentence. Blocklists for advice, certainty, benefit, and person words add a second layer. This checks wording, not meaning: a sentence made only of a card's words can still recombine them, so the cards need clinician review.
+- Test results are not sent to the model. The model ranks using conditions, medicines, heart failure type, and the caregiver's concern. A card that names an eGFR level or potassium shows a note that asks the caregiver to bring the latest result to the care team; it does not compare the caregiver's number with the card.
+- The model's per-card ranking explanation (`rationale`) is generated but not shown in the interface.
+- Inputs are limited server-side: conditions to the three known keys, heart failure type to the four UI options, numbers to five known fields, and the endpoint has a body-size cap and a per-IP rate limit (30 requests per 10 minutes).
 - Fallback to rule-based selection on any error, clearly labeled.
-- No login, and this app stores nothing you enter. It adds no analytics or cookies of its own. Inputs live in the browser tab. Each time a brief is made, they are sent through this app's server to the AI provider (Nebius). The hosting platform (Lovable, behind Cloudflare) may load its own script and set a bot-protection cookie, and fonts load from Google Fonts.
+- This app saves nothing you enter, and its own code adds no analytics or cookies. Conditions, medicines, heart failure type, and the caregiver's concern are sent through this app's server to the AI provider (Nebius) each time a brief is made; test results stay in the browser. The hosting platform (Lovable, behind Cloudflare) runs its own visitor analytics, which can include page views and clicks, and sets a bot-protection cookie. Fonts load from Google Fonts. What Nebius and the hosting platform retain has not been verified.
 
 ## License
 
