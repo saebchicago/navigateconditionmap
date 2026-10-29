@@ -472,3 +472,27 @@ const URGENT_CONCERN =
 
 /** True when the written concern mentions symptoms that may need urgent care. The app does not assess them. */
 export const mentionsUrgentSymptoms = (worry: string) => URGENT_CONCERN.test(worry);
+
+const NUMBER_RANGES: Record<string, [number, number]> = {
+  egfr: [1, 200],
+  uacr: [0, 10000],
+  a1c: [3, 20],
+  potassium: [1.5, 9],
+};
+
+/** True when an entered test result is not a number, or is outside a range any lab report would print. A format check only: it does not interpret the result. */
+export function unusualNumber(key: string, value: string): boolean {
+  const v = value.trim();
+  if (!v) return false;
+  if (key === "bp") {
+    const m = v.match(/^(\d{2,3})\s*\/\s*(\d{2,3})$/);
+    if (!m) return true;
+    const [sys, dia] = [Number(m[1]), Number(m[2])];
+    return sys < 50 || sys > 300 || dia < 20 || dia > 200 || dia >= sys;
+  }
+  const range = NUMBER_RANGES[key];
+  if (!range) return false;
+  if (!/^\d+(\.\d+)?$/.test(v)) return true;
+  const n = Number(v);
+  return n < range[0] || n > range[1];
+}

@@ -6,6 +6,7 @@ import {
   potassiumNote,
   filterEligible,
   mentionsUrgentSymptoms,
+  unusualNumber,
   fallbackPoints,
   type BriefPoint,
   type Card,
@@ -295,7 +296,8 @@ function Index() {
               <p className="mt-2 text-muted-foreground">
                 Helping someone with heart failure, type 2 diabetes, or kidney disease? Answer three
                 short steps. Get up to 3 questions to ask the care team. Each question is written
-                from a published guideline card. You can print the list.
+                from a published guideline card. Kidney questions are for people who also have type
+                2 diabetes. You can print the list.
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 This prototype uses 12 guideline cards and has not yet been reviewed by a clinician.
@@ -651,7 +653,11 @@ function YouToldUs({ a, isExample }: { a: Answers; isExample: boolean }) {
   const nums = NUMBERS.flatMap((n) => {
     if (a.unknown[n.key]) return [`${n.label}: don't know`];
     const v = a.numbers[n.key]?.trim();
-    return v ? [`${n.label} ${v}${n.unit}`] : [];
+    return v
+      ? [
+          `${n.label} ${v}${n.unit}${unusualNumber(n.key, v) ? " (check this number against the lab report)" : ""}`,
+        ]
+      : [];
   });
   return (
     <section className="print-card mb-5 rounded-md border border-border bg-card p-4">

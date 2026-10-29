@@ -9,6 +9,7 @@ import {
   checkRationale,
   standardPoint,
   mentionsUrgentSymptoms,
+  unusualNumber,
   floorNote,
   potassiumNote,
   sanitizeHfType,
@@ -405,6 +406,21 @@ describe("urgent symptoms in the concern", () => {
     "does not flag %s",
     (w) => expect(mentionsUrgentSymptoms(w)).toBe(false),
   );
+});
+
+describe("number format check", () => {
+  it("flags values no lab report would print, and ordinary values pass", () => {
+    expect(unusualNumber("potassium", "999")).toBe(true);
+    expect(unusualNumber("potassium", "abc")).toBe(true);
+    expect(unusualNumber("egfr", "-5")).toBe(true);
+    expect(unusualNumber("bp", "300/12")).toBe(true);
+    expect(unusualNumber("bp", "142")).toBe(true);
+    expect(unusualNumber("potassium", "4.6")).toBe(false);
+    expect(unusualNumber("egfr", "38")).toBe(false);
+    expect(unusualNumber("a1c", "7.9")).toBe(false);
+    expect(unusualNumber("bp", "142/86")).toBe(false);
+    expect(unusualNumber("uacr", "")).toBe(false);
+  });
 });
 
 describe("concern match flag", () => {
