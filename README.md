@@ -47,6 +47,23 @@ bun run build      # production build
 
 Add the secret `NEBIUS_API_KEY` in Project Settings → Secrets (optional `NEBIUS_MODEL`). Without a key the app shows the rule-based fallback with a visible notice.
 
+## Evaluation
+
+`scripts/eval` runs 30 synthetic caregiver cases (no real patient data) against the live endpoint and scores the responses (`bun scripts/eval/score.ts scripts/eval/after.json`). Results, run Oct 29, 2026:
+
+| | Older build (`814a82d`) | Current build (`507bb50`) |
+|---|---|---|
+| Answered by Nemotron | 27 of 30 | 28 of 30 |
+| Fallback | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same 2 kidney-only cases) |
+| Model response time (server-measured) | median 1.9 s, p90 5.4 s, max 12.2 s | median 1.7 s, p90 5.1 s, max 13.8 s |
+| Points kept in the model's wording | 64 of 67 (96%) | 52 of 67 (78%) |
+| Points replaced with the card's wording | 3 | 15 |
+| Violations of 6 structural rules* | 0 | 0 |
+
+*At most 3 points, at most one card per medicine class, only eligible cards, questions verbatim from the card, no milligram dose, no relationship words.
+
+What this does and does not show: the stricter wording checks replace more of the model's sentences with the guideline's own wording (22% versus 4%). The scores cover structure and listed wording rules only. They do not establish clinical correctness. An independent keyword scan of the kept sentences still flagged 7 of 52 that paraphrase a benefit the card states in other words (for example "helps protect the kidneys" for the card on kidney benefit). Thirty synthetic cases from one run on one day is a small sample.
+
 ## Known limitations
 
 - Every kidney card requires type 2 diabetes, so kidney disease on its own returns no cards, and kidney disease with heart failure shows heart failure cards only. The app says so on screen.
