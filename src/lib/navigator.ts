@@ -90,7 +90,7 @@ const DOWNPLAY = /\b(not\s+urgent|no\s+need|nothing\s+to\s+worry|do\s+not\s+worr
 // Certainty words must appear in the card itself. Phrases that only look like claims are ignored.
 const BENEFIT_ROOTS = ["protect", "prevent", "benefit", "improv", "reduc", "lower", "slow", "help", "better"];
 // Directive and cure words are in this family too: a point may use one only if its card does.
-const CERTAINTY_ROOTS = ["proven", "require", "must", "mandatory", "essential", "always", "never", "start", "stop", "discontinu", "switch", "doubl", "halv", "cut", "increas", "rais", "cure", "should"];
+const CERTAINTY_ROOTS = ["proven", "require", "must", "mandatory", "essential", "always", "never", "start", "stop", "discontinu", "switch", "doubl", "halv", "cut", "increas", "rais", "cure", "should", "too high", "too low", "above", "below", "exceed", "elevated", "abnormal", "out of range"];
 const NOT_CLAIMS = /\b(mildly\s+reduced|reduced\s+ejection|reduced\s+ef|lower\s+dose|slowly)\b/gi;
 const rootsIn = (roots: string[], text: string) => {
   const t = text.replace(NOT_CLAIMS, " ");
@@ -108,8 +108,11 @@ export function standardPoint(card: Card): string {
 
 /** True when text uses a word, number, medicine, dose, safety, benefit, or certainty claim its card does not support. */
 export function violatesCard(text: string, card: Card, input?: BriefInput): boolean {
-  const explicit = input ? [...input.conditions, input.hfType ?? "", ...input.medicines, ...Object.values(input.numbers), input.worry].join(" ") : "";
-  const allowedNumbers = new Set(numericTokens(`${card.guideline_says} ${explicit}`));
+  // Numbers must come from the card. A generated sentence may not restate or judge the caregiver's own
+  // results; the interface shows a deterministic note for those instead.
+  const allowedNumbers = new Set(numericTokens(card.guideline_says));
+  // Digits that are part of a medicine name (GLP-1, SGLT2) are fine when that medicine is allowed.
+  for (const term of MEDICINE_TERMS) if (/\d/.test(term) && containsTerm(`${card.guideline_says} ${(input?.medicines ?? []).join(" ")}`, term)) for (const n of numericTokens(term)) allowedNumbers.add(n);
   const allowedMedicines = `${card.guideline_says} ${(input?.medicines ?? []).join(" ")}`;
   const cardStatesBenefit = rootsIn(BENEFIT_ROOTS, card.guideline_says).length > 0;
   const cardCertainty = new Set(rootsIn(CERTAINTY_ROOTS, card.guideline_says));

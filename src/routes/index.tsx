@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import pack from "@/data/evidence-pack.json";
 import {
   egfrNote,
@@ -10,6 +10,7 @@ import {
   type ConditionKey,
   type Source,
 } from "@/lib/navigator";
+import { EXAMPLE, isExampleAnswers, isPristine } from "@/lib/example";
 
 const SITE = "https://navigateconditionmap.lovable.app";
 
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Up to 3 questions for a visit about heart failure, type 2 diabetes, or kidney disease, each tied to a published guideline. Free, no login, nothing stored. Educational only.",
+          "Up to 3 questions for a visit about heart failure, type 2 diabetes, or kidney disease, each tied to a published guideline. Free, no login, and this app does not store your answers. Educational only.",
       },
       { property: "og:title", content: "Navigator by ConditionMap" },
       {
@@ -67,11 +68,46 @@ const CHIPS = [
   "furosemide",
 ];
 const NUMBERS = [
-  { key: "egfr", label: "eGFR", hint: "mL/min/1.73m²", unit: "" },
-  { key: "uacr", label: "Urine albumin (UACR)", hint: "mg/g", unit: " mg/g" },
-  { key: "a1c", label: "A1C", hint: "%", unit: "%" },
-  { key: "bp", label: "Blood pressure", hint: "e.g. 130/80", unit: "" },
-  { key: "potassium", label: "Potassium", hint: "mmol/L", unit: " mmol/L" },
+  {
+    key: "egfr",
+    label: "eGFR",
+    field: "Kidney filtering result (eGFR)",
+    hint: "Copy the eGFR number from the blood test report. Unit: mL/min/1.73m².",
+    unit: "",
+    unknownLabel: "I don't know the eGFR result",
+  },
+  {
+    key: "uacr",
+    label: "Urine albumin (UACR)",
+    field: "Urine albumin result (UACR)",
+    hint: "A urine test for a protein called albumin. Unit: mg/g.",
+    unit: " mg/g",
+    unknownLabel: "I don't know the UACR result",
+  },
+  {
+    key: "a1c",
+    label: "A1C",
+    field: "A1C result (%)",
+    hint: "A blood test that shows average blood sugar over about 3 months.",
+    unit: "%",
+    unknownLabel: "I don't know the A1C result",
+  },
+  {
+    key: "bp",
+    label: "Blood pressure",
+    field: "Blood pressure",
+    hint: "Enter both numbers with a slash, such as 130/80.",
+    unit: "",
+    unknownLabel: "I don't know the blood pressure",
+  },
+  {
+    key: "potassium",
+    label: "Potassium",
+    field: "Potassium result",
+    hint: "Copy the potassium number from the blood test report. Unit: mmol/L.",
+    unit: " mmol/L",
+    unknownLabel: "I don't know the potassium result",
+  },
 ];
 const STEPS = ["Conditions", "Medicines", "Numbers and worries"];
 const MONTHS = [
@@ -97,16 +133,6 @@ const sourceName = (id: string) => SOURCE_NAMES[id] ?? SOURCES[id]?.title ?? id;
 // Standardized points start with "<topic>: "; the card heading already shows the topic.
 const displayPoint = (point: string, topic: string) =>
   point.startsWith(`${topic}: `) ? point.slice(topic.length + 2) : point;
-const displayRationale = (r?: string) => {
-  if (!r)
-    return "Ranked by NVIDIA Nemotron. Its explanation is left out because it did not match the card's wording.";
-  if (r.startsWith("Selected by rule to fill"))
-    return "Added from the guideline cards to round out the list.";
-  if (r.startsWith("Selected by rule"))
-    return "Chosen by rule from the cards that fit your answers.";
-  return r.replace(/^E\d{1,2}\b/, "This card").replace(/\bE\d{1,2}\b/g, "this card");
-};
-
 interface Result {
   points: BriefPoint[];
   mode: "nemotron" | "fallback";
@@ -133,8 +159,24 @@ function Index() {
   const [unknown, setUnknown] = useState<Record<string, boolean>>({});
   const [worry, setWorry] = useState("");
   const [ownQuestions, setOwnQuestions] = useState("");
+  const [includeGuideline, setIncludeGuideline] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+
+  const busy = useRef(false);
+  const requestId = useRef(0);
+  const stepLabel = useRef<HTMLParagraphElement>(null);
+  const firstRender = useRef(true);
+  const form = { conditions, hfType, meds, numbers, unknown, worry };
+  const exampleActive = isExampleAnswers(form);
+
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    if (step < 3) stepLabel.current?.focus();
+  }, [step]);
 
   const medList = meds
     .split("\n")
@@ -153,19 +195,20 @@ function Index() {
   };
 
   const example = () => {
-    setConditions(["heart_failure", "type_2_diabetes", "ckd"]);
-    setHfType("Preserved EF");
-    setMeds("metformin\nlisinopril\nfurosemide");
-    setNumbers({ egfr: "38", uacr: "120", a1c: "7.9", bp: "142/86", potassium: "4.6" });
+    setConditions(EXAMPLE.conditions);
+    setHfType(EXAMPLE.hfType);
+    setMeds(EXAMPLE.meds);
+    setNumbers(EXAMPLE.numbers);
     setUnknown({});
-    setWorry(
-      "The ankles are swelling more, and I'm not sure the diabetes pills are still right for the kidneys.",
-    );
+    setWorry(EXAMPLE.worry);
     setResult(null);
     go(2);
   };
 
   const generate = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    const id = ++requestId.current;
     go(3);
     setLoading(true);
     setResult(null);
@@ -173,10 +216,13 @@ function Index() {
     for (const n of NUMBERS)
       nums[n.key] = unknown[n.key] ? "don't know" : numbers[n.key]?.trim() || "not provided";
     const eligible = filterEligible(CARDS, conditions, medList);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
     try {
       const r = await fetch("/api/public/navigator-brief", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           conditions,
           hfType: conditions.includes("heart_failure") ? hfType : undefined,
@@ -188,15 +234,21 @@ function Index() {
       const data = (await r.json()) as Result;
       if (r.status === 429) throw new Error("rate_limited");
       if (!r.ok || !Array.isArray(data.points)) throw new Error("bad_response");
-      setResult(data);
+      if (id === requestId.current) setResult(data);
     } catch (e) {
-      setResult({
-        points: fallbackPoints(eligible, conditions.includes("heart_failure") ? hfType : undefined),
-        mode: "fallback",
-        error: (e as Error).message === "rate_limited" ? "rate_limited" : "service_unreachable",
-      });
+      if (id === requestId.current)
+        setResult({
+          points: fallbackPoints(
+            eligible,
+            conditions.includes("heart_failure") ? hfType : undefined,
+          ),
+          mode: "fallback",
+          error: (e as Error).message === "rate_limited" ? "rate_limited" : "service_unreachable",
+        });
     } finally {
-      setLoading(false);
+      clearTimeout(timer);
+      busy.current = false;
+      if (id === requestId.current) setLoading(false);
     }
   };
 
@@ -209,21 +261,21 @@ function Index() {
         </p>
       </div>
 
-      <header className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 pt-6 pb-2">
+      <header className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 pt-6 pb-2">
         <div className="flex items-center gap-3">
           <img src="/favicon.svg" alt="" width={44} height={44} className="shrink-0" />
           <p className="font-serif text-3xl font-bold leading-none text-primary">
-            Navigator
+            Navigator{" "}
             <span className="mt-1 block font-sans text-sm font-normal text-muted-foreground sm:ml-2 sm:inline">
               by ConditionMap
             </span>
           </p>
         </div>
-        {step < 3 && (
+        {step < 3 && isPristine(form) && (
           <button
             type="button"
             onClick={example}
-            className="no-print focus-ring shrink-0 rounded-md border-2 border-accent px-3 py-1.5 text-sm font-bold text-foreground hover:bg-accent/15"
+            className="no-print focus-ring min-h-11 shrink-0 rounded-md border-2 border-accent px-3 py-1.5 text-sm font-bold text-foreground hover:bg-accent/15"
           >
             See an example
           </button>
@@ -238,14 +290,22 @@ function Index() {
                 Walk into the next visit with good questions.
               </h1>
               <p className="mt-2 text-muted-foreground">
-                For anyone helping someone live with heart failure, type 2 diabetes, or kidney
-                disease. Answer three short steps. You get up to 3 questions for the care team, each
-                tied to a published guideline, on one page you can print.
+                Helping someone with heart failure, type 2 diabetes, or kidney disease? Answer three
+                short steps. Get up to 3 questions to ask the care team. Each one comes from a
+                published care guideline. You can print the list.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                This prototype uses 12 guideline cards and has not yet been reviewed by a clinician.
+                It uses NVIDIA Nemotron on Nebius Token Factory to order the questions.
               </p>
             </div>
 
             <div className="no-print mb-6">
-              <p className="mb-2 text-sm text-muted-foreground">
+              <p
+                ref={stepLabel}
+                tabIndex={-1}
+                className="mb-2 text-sm text-muted-foreground outline-none"
+              >
                 Step {step + 1} of {STEPS.length}:{" "}
                 <span className="font-bold text-foreground">{STEPS[step]}</span>
               </p>
@@ -266,7 +326,7 @@ function Index() {
 
         {step === 0 && (
           <section className="card-surface p-5 sm:p-6">
-            <fieldset>
+            <fieldset aria-describedby="cond-hint">
               <legend className="mb-3 font-serif text-xl font-semibold">
                 Which conditions does the person have?
               </legend>
@@ -291,8 +351,8 @@ function Index() {
               <fieldset className="mt-5">
                 <legend className="mb-1 font-bold">Heart failure type (optional)</legend>
                 <p className="mb-2 text-sm text-muted-foreground">
-                  EF means ejection fraction, how well the heart pumps. It is often on an echo
-                  report.
+                  EF stands for ejection fraction. Look for it on a heart ultrasound (echo) report.
+                  If you do not know the type, choose “Not sure.”
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {HF_TYPES.map((t) => (
@@ -313,22 +373,52 @@ function Index() {
                 </div>
               </fieldset>
             )}
-            <Nav next={() => go(1)} nextDisabled={!conditions.length} />
-            {!conditions.length && (
-              <p className="mt-2 text-right text-sm text-muted-foreground">
-                Pick at least one to continue.
+            {conditions.includes("ckd") && !conditions.includes("type_2_diabetes") && (
+              <p
+                id="kidney-note"
+                role="status"
+                className="mt-4 rounded-md border-2 border-accent bg-accent/10 p-3 text-sm"
+              >
+                {conditions.length === 1 ? (
+                  <>
+                    <strong>This version has no questions for kidney disease alone.</strong> Its
+                    kidney questions are for people who also have type 2 diabetes. If the person has
+                    other conditions, choose them too.
+                  </>
+                ) : (
+                  <>
+                    <strong>No kidney questions are included.</strong> In this version, kidney
+                    questions are only for people who also have type 2 diabetes. Questions for your
+                    other choices are included.
+                  </>
+                )}
               </p>
             )}
+            <Nav
+              next={() => go(1)}
+              nextDisabled={!conditions.length}
+              nextLabel={
+                conditions.length === 1 && conditions[0] === "ckd" ? "Continue anyway" : "Next"
+              }
+            />
+            <p
+              id="cond-hint"
+              className={`mt-2 text-right text-sm text-muted-foreground ${conditions.length ? "sr-only" : ""}`}
+            >
+              Choose at least one condition to continue.
+            </p>
           </section>
         )}
 
         {step === 1 && (
           <section className="card-surface p-5 sm:p-6">
             <label htmlFor="meds" className="mb-1 block font-serif text-xl font-semibold">
-              Current medicines
+              Medicines the person takes
             </label>
             <p id="meds-hint" className="mb-3 text-sm text-muted-foreground">
-              One per line. Any spelling is fine. Tap a name below to add it, or skip this step.
+              Enter one medicine per line. Use the spelling on the medicine label if you can. You
+              can leave this blank. Only add medicines the person already takes. The names below are
+              shortcuts, not suggestions.
             </p>
             <textarea
               id="meds"
@@ -347,44 +437,53 @@ function Index() {
                     type="button"
                     aria-pressed={on}
                     onClick={() => addChip(m)}
-                    className={`focus-ring rounded-full border px-3 py-1 text-sm ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary text-secondary-foreground hover:border-primary"}`}
+                    className={`focus-ring min-h-11 rounded-full border px-4 py-1 text-sm ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary text-secondary-foreground hover:border-primary"}`}
                   >
                     {on ? "✓" : "+"} {m}
                   </button>
                 );
               })}
             </div>
-            <Nav back={() => go(0)} next={() => go(2)} />
+            <Nav back={() => go(0)} next={() => go(2)} nextLabel="Next: numbers and worries" />
           </section>
         )}
 
         {step === 2 && (
           <section className="card-surface p-5 sm:p-6">
-            <h2 className="mb-1 font-serif text-xl font-semibold">Latest numbers</h2>
+            <h2 className="mb-1 font-serif text-xl font-semibold">
+              Latest test results and blood pressure
+            </h2>
             <p className="mb-4 text-sm text-muted-foreground">
-              All optional. Use the most recent results you have, or check "Don't know."
+              All fields are optional. Use the latest results you have. Leave any blank if you do
+              not know.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {NUMBERS.map((n) => (
                 <div key={n.key}>
                   <label htmlFor={n.key} className="block font-bold">
-                    {n.label}{" "}
-                    <span className="text-sm font-normal text-muted-foreground">({n.hint})</span>
+                    {n.field}
                   </label>
+                  <p id={`${n.key}-hint`} className="text-sm text-muted-foreground">
+                    {n.hint}
+                  </p>
                   <input
                     id={n.key}
-                    inputMode="decimal"
+                    type="text"
+                    inputMode={n.key === "bp" ? "text" : "decimal"}
+                    autoComplete="off"
+                    aria-describedby={`${n.key}-hint`}
                     disabled={unknown[n.key]}
                     value={numbers[n.key] ?? ""}
                     onChange={(e) =>
                       setNumbers({ ...numbers, [n.key]: e.target.value.slice(0, 12) })
                     }
-                    className="focus-ring mt-1 w-full rounded-md border-2 border-input bg-card p-2 disabled:opacity-50"
+                    className="focus-ring mt-1 min-h-12 w-full rounded-md border-2 border-input bg-card p-2 disabled:opacity-50"
                   />
-                  <label className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                  <label className="mt-1 flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
                     <input
                       type="checkbox"
-                      className="focus-ring accent-primary"
+                      className="focus-ring size-6 accent-primary"
+                      aria-label={n.unknownLabel}
                       checked={!!unknown[n.key]}
                       onChange={(e) => setUnknown({ ...unknown, [n.key]: e.target.checked })}
                     />
@@ -397,7 +496,8 @@ function Index() {
               What worries you most before this visit?
             </label>
             <p id="worry-hint" className="text-sm text-muted-foreground">
-              In your own words. Optional.
+              In your own words. Optional. Please do not include names, birth dates, or other
+              details that identify someone.
             </p>
             <textarea
               id="worry"
@@ -408,12 +508,12 @@ function Index() {
               onChange={(e) => setWorry(e.target.value)}
               className="focus-ring mt-1 w-full rounded-md border-2 border-input bg-card p-3"
             />
-            <p className="text-right text-sm text-muted-foreground" aria-live="polite">
-              {worry.length}/300
+            <p className="text-right text-sm text-muted-foreground">
+              {worry.length} of 300 characters
             </p>
             <Nav back={() => go(1)} next={generate} nextLabel="Make my questions" />
             <p className="mt-3 text-right text-sm text-muted-foreground">
-              Your answers are sent once to the AI provider to make this page. This app does not
+              Your answers are sent to the AI provider (Nebius) to make this page. This app does not
               save them.
             </p>
           </section>
@@ -424,8 +524,11 @@ function Index() {
             loading={loading}
             result={result}
             answers={{ conditions, hfType, medList, numbers, unknown, worry }}
+            isExample={exampleActive}
             ownQuestions={ownQuestions}
             setOwnQuestions={setOwnQuestions}
+            includeGuideline={includeGuideline}
+            setIncludeGuideline={setIncludeGuideline}
             onEdit={() => go(0)}
           />
         )}
@@ -455,14 +558,22 @@ function Index() {
             (AGPL-3.0)
           </p>
           <p>
-            Questions are ranked by NVIDIA Nemotron on Nebius Token Factory and checked in code.
-            Sources: ADA/KDIGO 2022, ESC 2023 heart failure update, AHA/ACC/HFSA 2022 heart failure
-            guideline, ADA Standards of Care 2026. Guideline cards updated {longDate(pack.version)}.
+            Uses NVIDIA Nemotron on Nebius Token Factory to order questions. Guideline cards updated{" "}
+            {longDate(pack.version)}.
           </p>
+          <details>
+            <summary className="focus-ring cursor-pointer font-bold">
+              Sources used by this app
+            </summary>
+            <p className="mt-1">
+              ADA/KDIGO 2022 consensus report, ESC 2023 heart failure guideline update, AHA/ACC/HFSA
+              2022 heart failure guideline, ADA Standards of Care 2026 (sections 10 and 11).
+            </p>
+          </details>
           <p>
             This app does not store what you enter and adds no analytics or cookies of its own. Your
-            answers go once to the AI provider (Nebius) to make the page. The hosting platform may
-            load its own script and set a bot-protection cookie, and fonts load from Google Fonts.
+            answers go to the AI provider (Nebius) to make the page. The hosting platform may load
+            its own script and set a bot-protection cookie, and fonts load from Google Fonts.
           </p>
         </div>
       </footer>
@@ -487,7 +598,7 @@ function Nav({
         <button
           type="button"
           onClick={back}
-          className="focus-ring rounded-md border-2 border-border px-5 py-2.5 font-bold hover:bg-muted"
+          className="focus-ring min-h-12 rounded-md border-2 border-border px-5 py-2.5 font-bold hover:bg-muted"
         >
           Back
         </button>
@@ -498,7 +609,7 @@ function Nav({
         type="button"
         onClick={next}
         disabled={nextDisabled}
-        className="focus-ring rounded-md bg-primary px-6 py-2.5 font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
+        className="focus-ring min-h-12 rounded-md bg-primary px-6 py-2.5 font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
       >
         {nextLabel}
       </button>
@@ -507,19 +618,15 @@ function Nav({
 }
 
 function Loading() {
-  const [phase, setPhase] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setPhase(1), 1400);
-    return () => clearTimeout(t);
-  }, []);
   return (
-    <section className="card-surface p-6" aria-live="polite">
+    <section className="card-surface p-6" role="status">
       <p className="font-serif text-lg font-semibold text-primary">
-        {phase === 0
-          ? "Matching your answers to the guideline cards..."
-          : "Asking NVIDIA Nemotron which topics matter most for this visit..."}
+        Putting your questions in order...
       </p>
-      <p className="mt-1 text-sm text-muted-foreground">This usually takes a few seconds.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        If the AI service is unavailable, you will still get questions from the published
+        guidelines.
+      </p>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-border">
         <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
       </div>
@@ -527,7 +634,7 @@ function Loading() {
   );
 }
 
-function YouToldUs({ a }: { a: Answers }) {
+function YouToldUs({ a, isExample }: { a: Answers; isExample: boolean }) {
   const conds = CONDITIONS.filter((c) => a.conditions.includes(c.key)).map((c) =>
     c.key === "heart_failure" && a.hfType && a.hfType !== "Not sure"
       ? `${c.label} (${a.hfType})`
@@ -541,6 +648,11 @@ function YouToldUs({ a }: { a: Answers }) {
   return (
     <section className="print-card mb-5 rounded-md border border-border bg-card p-4">
       <h2 className="font-serif text-lg font-semibold">What you told us</h2>
+      {isExample && (
+        <p className="mt-1 text-sm font-bold">
+          Example answers. These are not the person's answers.
+        </p>
+      )}
       <dl className="mt-2 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[9rem_1fr]">
         <dt className="font-bold">Conditions</dt>
         <dd>{conds.join(", ")}</dd>
@@ -548,7 +660,7 @@ function YouToldUs({ a }: { a: Answers }) {
         <dd>{a.medList.length ? a.medList.join(", ") : "None listed"}</dd>
         {nums.length > 0 && (
           <>
-            <dt className="font-bold">Latest numbers</dt>
+            <dt className="font-bold">Test results</dt>
             <dd>{nums.join(" · ")}</dd>
           </>
         )}
@@ -559,6 +671,10 @@ function YouToldUs({ a }: { a: Answers }) {
           </>
         )}
       </dl>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Answers entered by the caregiver. Not checked against the medical record. Test dates were
+        not collected.
+      </p>
     </section>
   );
 }
@@ -567,18 +683,29 @@ function Brief({
   loading,
   result,
   answers,
+  isExample,
   ownQuestions,
   setOwnQuestions,
+  includeGuideline,
+  setIncludeGuideline,
   onEdit,
 }: {
   loading: boolean;
   result: Result | null;
   answers: Answers;
+  isExample: boolean;
   ownQuestions: string;
   setOwnQuestions: (v: string) => void;
+  includeGuideline: boolean;
+  setIncludeGuideline: (v: boolean) => void;
   onEdit: () => void;
 }) {
-  if (loading || !result) return <Loading />;
+  const ready = !loading && result !== null;
+  useEffect(() => {
+    if (ready) document.getElementById("results-heading")?.focus();
+  }, [ready]);
+
+  if (!ready || !result) return <Loading />;
 
   const byId = new Map(CARDS.map((c) => [c.id, c]));
   const hasCkd = answers.conditions.includes("ckd");
@@ -598,33 +725,58 @@ function Brief({
       </p>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-primary">Questions for the visit</h1>
+          <h1
+            id="results-heading"
+            tabIndex={-1}
+            className="font-serif text-3xl font-bold text-primary outline-none"
+          >
+            Questions for the visit
+          </h1>
           <p className="text-sm text-muted-foreground">Prepared {today}</p>
         </div>
-        <div className="no-print flex gap-2">
+        <div className="no-print flex flex-wrap gap-2">
           <button
             type="button"
             onClick={onEdit}
-            className="focus-ring rounded-md border-2 border-border px-4 py-2 font-bold hover:bg-muted"
+            className="focus-ring min-h-12 rounded-md border-2 border-border px-4 py-2 font-bold hover:bg-muted"
           >
             Edit answers
           </button>
           <button
             type="button"
             onClick={() => window.print()}
-            className="focus-ring rounded-md bg-accent px-4 py-2 font-bold text-accent-foreground hover:bg-accent/90"
+            className="focus-ring min-h-12 rounded-md bg-accent px-4 py-2 font-bold text-accent-foreground hover:bg-accent/90"
           >
             Print for the visit
           </button>
         </div>
       </div>
 
-      <YouToldUs a={answers} />
+      <label className="no-print mb-3 flex min-h-10 items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          className="focus-ring size-5 accent-primary"
+          checked={includeGuideline}
+          onChange={(e) => setIncludeGuideline(e.target.checked)}
+        />
+        Include the guideline text on the printout (makes it longer)
+      </label>
+
+      <p className="print-only mb-2 text-sm">
+        Patient name: ______________________________ Visit date: ________________
+      </p>
+
+      <YouToldUs a={answers} isExample={isExample} />
+
+      <p className="mb-4 rounded-md border border-border bg-card p-3 text-sm">
+        For planning questions for a visit. This app does not check symptoms or decide which
+        treatment is right.
+      </p>
 
       {kidneyNote && result.points.length > 0 && (
         <p className="mb-4 rounded-md border border-border bg-card p-3 text-sm">
-          <strong>About kidney disease:</strong> Navigator's kidney guideline cards are written for
-          people who also have type 2 diabetes, so none are shown for kidney disease without it.
+          <strong>No kidney questions are included.</strong> In this version, kidney questions are
+          only for people who also have type 2 diabetes.
         </p>
       )}
 
@@ -632,13 +784,13 @@ function Brief({
         <p className="mb-4 rounded-md border-2 border-accent bg-accent/10 p-3 text-sm">
           {result.error === "rate_limited" ? (
             <>
-              <strong>You've made several pages in a short time.</strong> These come straight from
-              the guideline cards. Wait a few minutes to get the AI-ranked version.
+              <strong>The AI service has reached its request limit.</strong> These questions use the
+              guideline cards in their usual order. You can use this list now or try again later.
             </>
           ) : (
             <>
-              <strong>The AI ranking wasn't available just now.</strong> These come straight from
-              the guideline cards in their standard order. Every point is still sourced.
+              <strong>The AI service is unavailable.</strong> These questions use the guideline
+              cards in their usual order. The source links are still included.
             </>
           )}
         </p>
@@ -647,116 +799,124 @@ function Brief({
       {result.points.length === 0 ? (
         <p className="card-surface p-5">
           {kidneyOnly
-            ? "Navigator's guideline cards for kidney disease are written for people who also have type 2 diabetes, so there is nothing to show for kidney disease on its own yet. If the person also has type 2 diabetes or heart failure, go back and add it to get questions for those."
+            ? "This version has no questions for kidney disease alone. Its kidney disease cards also require type 2 diabetes. Use Edit answers to go back and check the conditions you chose."
             : "None of the guideline cards match these answers yet. Some cards depend on the medicines listed."}
         </p>
       ) : (
-        <ol className="flex flex-col gap-4">
-          {result.points.map((p, i) => {
-            const card = byId.get(p.card_id);
-            if (!card) return null;
-            const src = SOURCES[card.source];
-            if (!src) return null;
-            const supportingSources = [
-              ...new Set(
-                (p.supporting_card_ids ?? []).flatMap((id) => {
-                  const supporting = byId.get(id);
-                  return supporting && supporting.source !== card.source ? [supporting.source] : [];
-                }),
-              ),
-            ];
-            return (
-              <li key={p.card_id} className="card-surface print-card p-5">
-                <div className="flex items-start gap-3">
-                  <span
-                    aria-hidden
-                    className="print-exact flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-serif font-bold text-primary-foreground"
-                  >
-                    {i + 1}
-                  </span>
-                  <h2 className="pt-0.5 font-serif text-xl font-semibold text-primary">
-                    {card.topic}
-                  </h2>
-                </div>
-                <p className="mt-2">{displayPoint(p.point, card.topic)}</p>
-                {(() => {
-                  const egfr = answers.unknown["egfr"]
-                    ? undefined
-                    : answers.numbers["egfr"]?.trim();
-                  const notes = [
-                    egfrNote(card, egfr),
-                    (card.id === "E3" || card.id === "E9") &&
-                    answers.conditions.includes("heart_failure") &&
-                    (!answers.hfType || answers.hfType === "Not sure")
-                      ? "You said the heart failure type is not sure. This card is written for a specific type. Ask the care team which type applies."
-                      : null,
-                  ].filter((n): n is string => n !== null);
-                  return notes.map((n) => (
+        <>
+          <p className="mb-2 text-sm text-muted-foreground">
+            Numbers show the order of the questions, not how urgent they are.
+          </p>
+          <ol className="flex flex-col gap-4">
+            {result.points.map((p, i) => {
+              const card = byId.get(p.card_id);
+              if (!card) return null;
+              const src = SOURCES[card.source];
+              if (!src) return null;
+              const supportingSources = [
+                ...new Set(
+                  (p.supporting_card_ids ?? []).flatMap((id) => {
+                    const supporting = byId.get(id);
+                    return supporting && supporting.source !== card.source
+                      ? [supporting.source]
+                      : [];
+                  }),
+                ),
+              ];
+              const egfr = answers.unknown["egfr"] ? undefined : answers.numbers["egfr"]?.trim();
+              const notes = [
+                egfrNote(card, egfr),
+                (card.id === "E3" || card.id === "E9") &&
+                answers.conditions.includes("heart_failure") &&
+                (!answers.hfType || answers.hfType === "Not sure")
+                  ? "You said the heart failure type is not sure. This card is written for a specific type. Ask the care team which type applies."
+                  : null,
+              ].filter((n): n is string => n !== null);
+              return (
+                <li key={p.card_id} className="card-surface print-card p-5">
+                  <div className="flex items-start gap-3">
+                    <span
+                      aria-hidden
+                      className="print-exact flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-serif font-bold text-primary-foreground"
+                    >
+                      {i + 1}
+                    </span>
+                    <h2 className="pt-0.5 font-serif text-xl font-semibold text-primary">
+                      {card.topic}
+                    </h2>
+                  </div>
+                  <div className="mt-3 rounded-md border-l-4 border-accent bg-secondary p-4">
+                    <p className="text-sm font-bold text-secondary-foreground">Ask the care team</p>
+                    <p className="text-lg font-bold">“{card.question_for_clinician}”</p>
+                    <div className="print-only mt-2 text-sm">
+                      Care team notes:
+                      <span className="print-line" />
+                      <span className="print-line" />
+                    </div>
+                  </div>
+                  <p className="mt-3">{displayPoint(p.point, card.topic)}</p>
+                  {notes.map((n) => (
                     <p
                       key={n}
                       className="mt-2 rounded-md border border-accent bg-accent/10 p-2 text-sm"
                     >
                       <strong>Check this one:</strong> {n}
                     </p>
-                  ));
-                })()}
-                <div className="mt-3 rounded-md border-l-4 border-accent bg-secondary p-4">
-                  <p className="text-sm font-bold text-secondary-foreground">Ask the care team</p>
-                  <p className="text-lg font-bold">“{card.question_for_clinician}”</p>
-                  <div className="print-only mt-2 text-sm">
-                    What they said:
-                    <span className="print-line" />
-                    <span className="print-line" />
-                  </div>
-                </div>
-                <details className="no-print mt-3">
-                  <summary className="focus-ring cursor-pointer font-bold text-primary">
-                    What the guideline says
-                  </summary>
-                  <p className="mt-2 text-muted-foreground">{card.guideline_says}</p>
-                </details>
-                <p className="print-only mt-2 text-sm">
-                  <strong>What the guideline says:</strong> {card.guideline_says}
-                </p>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Source:{" "}
-                  <a
-                    href={`https://doi.org/${src.doi}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="focus-ring font-bold text-primary underline underline-offset-2"
-                  >
-                    {sourceName(card.source)}
-                  </a>{" "}
-                  <span className="whitespace-nowrap">(doi:{src.doi})</span>
-                  {supportingSources.map((sourceId) => {
-                    const source = SOURCES[sourceId];
-                    if (!source) return null;
-                    return (
-                      <span key={sourceId}>
-                        {" · Also: "}
-                        <a
-                          href={`https://doi.org/${source.doi}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="focus-ring text-primary underline underline-offset-2"
-                        >
-                          {sourceName(sourceId)}
-                        </a>
-                      </span>
-                    );
-                  })}
-                </p>
-              </li>
-            );
-          })}
-        </ol>
+                  ))}
+                  <details className="no-print mt-3">
+                    <summary className="focus-ring cursor-pointer font-bold text-primary">
+                      Sources and guideline text
+                    </summary>
+                    <p className="mt-2 text-muted-foreground">{card.guideline_says}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Full citation: {sourceName(card.source)} (doi:{src.doi})
+                      {supportingSources.map((sourceId) => {
+                        const source = SOURCES[sourceId];
+                        if (!source) return null;
+                        return (
+                          <span key={sourceId}>
+                            {" · Also: "}
+                            <a
+                              href={`https://doi.org/${source.doi}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="focus-ring text-primary underline underline-offset-2"
+                            >
+                              {sourceName(sourceId)}
+                            </a>
+                          </span>
+                        );
+                      })}
+                    </p>
+                  </details>
+                  {includeGuideline && (
+                    <p className="print-only mt-2 text-sm">
+                      <strong>Guideline text:</strong> {card.guideline_says}
+                    </p>
+                  )}
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Source:{" "}
+                    <a
+                      href={`https://doi.org/${src.doi}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="focus-ring font-bold text-primary underline underline-offset-2"
+                    >
+                      {sourceName(card.source)}
+                    </a>
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        </>
       )}
 
       <section className="card-surface print-card mt-4 p-5">
         <h2 className="font-serif text-xl font-semibold text-primary">Your own questions</h2>
         <label htmlFor="own" className="no-print mt-1 block text-sm text-muted-foreground">
-          Anything else to ask? It stays in this tab and shows up on your printout.
+          Anything else to ask? What you write here will appear on your printout. It is kept only in
+          this open tab.
         </label>
         <textarea
           id="own"
@@ -766,46 +926,45 @@ function Brief({
           className="no-print focus-ring mt-2 w-full rounded-md border-2 border-input bg-card p-3"
         />
         {ownQuestions.trim() && (
-          <p className="print-only mt-2 whitespace-pre-line">{ownQuestions.trim()}</p>
+          <p className="print-only mt-2 whitespace-pre-wrap break-words">{ownQuestions.trim()}</p>
         )}
         <div className="print-only mt-2">
-          <span className="print-line" />
           <span className="print-line" />
           <span className="print-line" />
         </div>
       </section>
 
       <p className="mt-5 rounded-md border border-border bg-card p-3 text-sm font-bold">
-        Educational information from published guidelines. Not medical advice. Decisions belong to
-        you and your care team.
+        Educational information from published guidelines. Not medical advice. Do not change
+        medicines based on this page. You and your care team decide what care is right.
       </p>
 
-      {result.points.length > 0 && (
-        <details className="no-print card-surface mt-5 p-4">
-          <summary className="focus-ring cursor-pointer font-bold text-primary">
-            Why these questions?
-          </summary>
-          <ul className="mt-2 flex flex-col gap-2 text-sm">
-            {result.points.map((p) => (
-              <li key={p.card_id}>
-                <strong>{byId.get(p.card_id)?.topic}:</strong> {displayRationale(p.rationale)}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <details className="no-print mt-4 p-1 text-sm text-muted-foreground">
+        <summary className="focus-ring cursor-pointer font-bold">
+          Medical terms on this page
+        </summary>
+        <ul className="mt-2 flex flex-col gap-1">
+          <li>CKD: short for chronic kidney disease.</li>
+          <li>eGFR: an estimate of how well the kidneys filter blood.</li>
+          <li>UACR: a urine test that compares albumin, a protein, with creatinine.</li>
+          <li>A1C: a blood test that shows average blood sugar over about 3 months.</li>
+          <li>EF: short for ejection fraction, a measure of how well the heart pumps.</li>
+          <li>SGLT2 inhibitor: a type of medicine.</li>
+        </ul>
+      </details>
 
       <details className="no-print mt-3 p-1 text-sm text-muted-foreground">
         <summary className="focus-ring cursor-pointer font-bold">How this page was made</summary>
         <p className="mt-2">
-          Rules pick the guideline cards that fit your answers. NVIDIA Nemotron on Nebius Token
-          Factory ranks them and writes a short explanation for each. Code then checks every
-          explanation against its card. If the wording adds a number, medicine, dose, or safety
-          claim the card doesn't make, the guideline's own wording is used instead.
+          Rules select guideline cards that match your answers. NVIDIA Nemotron, an AI model run
+          through Nebius Token Factory, puts them in order and drafts a short explanation for each.
+          Code checks the wording against each card. If it finds an added claim, it uses the card's
+          wording instead. These checks can miss mistakes and are not a clinical review.
         </p>
         <p className="mt-1">
-          Model: {result.mode === "nemotron" ? result.model : "none (rule-based)"}
-          {result.latency_ms != null && ` · ${(result.latency_ms / 1000).toFixed(1)} seconds`}
+          AI model: {result.mode === "nemotron" ? result.model : "none (rule-based)"}
+          {result.latency_ms != null &&
+            `. Model response time: ${(result.latency_ms / 1000).toFixed(1)} seconds.`}
         </p>
       </details>
 

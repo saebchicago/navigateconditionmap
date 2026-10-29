@@ -63,9 +63,11 @@ describe("point fidelity", () => {
     const points = validateModelOutput('{"points":[{"card_id":"E4","point":"Discuss metformin safety.","question":"typo or drift"}]}', filterEligible(cards, input.conditions, input.medicines), input);
     expect(points?.[0]?.question).toBe(card.question_for_clinician);
   });
-  it("allows numbers in the selected guideline or explicit inputs", () => {
-    expect(checkPoint("Discuss metformin at eGFR 38 and the guideline threshold 30.", card, input).standardized).toBe(false);
-    expect(checkPoint("Discuss the blood pressure reading 142/86.", card, input).standardized).toBe(false);
+  it("allows numbers from the selected guideline only, never the caregiver's own results", () => {
+    expect(checkPoint("Discuss metformin and the guideline threshold 30.", card, input).standardized).toBe(false);
+    expect(checkPoint("Discuss metformin at eGFR 38.", card, input).standardized).toBe(true);
+    expect(checkPoint("Discuss the blood pressure reading 142/86.", card, input).standardized).toBe(true);
+    expect(checkPoint("Their blood pressure is above the recommended target.", card, input).standardized).toBe(true);
   });
   it("blocks a milligram dose the evidence card does not state", () => {
     expect(checkPoint("Discuss the guideline dose of 1,000 mg.", card, input).standardized).toBe(true);

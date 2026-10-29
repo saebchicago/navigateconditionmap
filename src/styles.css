@@ -114,7 +114,11 @@
 }
 
 @utility focus-ring {
-  &:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+  &:focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse { animation: none !important; }
 }
 
 .print-only { display: none; }
