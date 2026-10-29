@@ -1,6 +1,6 @@
 {
   "base": "https://navigateconditionmap.lovable.app",
-  "ran_at": "2026-10-29T19:58:21.399Z",
+  "ran_at": "2026-10-29T20:11:35.247Z",
   "modelHit": 7,
   "fbHit": 3,
   "scored": 7,
@@ -13,8 +13,8 @@
       "mode": "nemotron",
       "model": [
         "E8",
-        "E1",
-        "E2"
+        "E2",
+        "E4"
       ],
       "fallback": [
         "E1",
@@ -115,7 +115,7 @@
       "model": [
         "E3",
         "E10",
-        "E1"
+        "E4"
       ],
       "fallback": [
         "E1",
@@ -124,7 +124,8 @@
       ],
       "matched": [
         "E3",
-        "E10"
+        "E10",
+        "E4"
       ]
     },
     {
@@ -138,7 +139,7 @@
       "model": [
         "E12",
         "E6",
-        "E4"
+        "E1"
       ],
       "fallback": [
         "E1",
@@ -146,7 +147,8 @@
         "E4"
       ],
       "matched": [
-        "E12"
+        "E12",
+        "E6"
       ]
     },
     {
@@ -156,7 +158,7 @@
       "model": [
         "E2",
         "E4",
-        "E6"
+        "E5"
       ],
       "fallback": [
         "E1",

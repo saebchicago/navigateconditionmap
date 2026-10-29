@@ -96,7 +96,7 @@ How the design changed: each stricter wording check replaced more of the model's
 
 ### Does Nemotron's ranking beat the rule-based fallback?
 
-`scripts/eval/ranking.ts` fixes eight situations and, for seven of them, a concern with a predefined expected card (chosen by the author before running). It then checks whether that card is in the top 3. Result on build `019bcea` (`scripts/eval/ranking.json`): Nemotron 7 of 7, rule fallback 3 of 7. Nemotron's ranking changes which cards appear in response to the concern; the fallback cannot. This is seven author-chosen cases, not a general measure of ranking quality, and it does not measure clinical usefulness. The model also returns a yes or no "matches the concern" flag per card, shown only as a fixed label.
+`scripts/eval/ranking.ts` fixes eight situations and, for seven of them, a concern with a predefined expected card (chosen by the author before running). It then checks whether that card is in the top 3. Result on build `c7a075f` (`scripts/eval/ranking.json`): Nemotron 7 of 7, rule fallback 3 of 7. Nemotron's ranking changes which cards appear in response to the concern; the fallback cannot. This is seven author-chosen cases, not a general measure of ranking quality, and it does not measure clinical usefulness. The model also returns a yes or no "matches the concern" flag per card, shown only as a fixed label. That flag is the model's judgment and is not measured: in one case it also marked the metformin card for a heart failure concern.
 
 ### Running the evaluation yourself
 
