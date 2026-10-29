@@ -1,72 +1,169 @@
 {
   "base": "https://navigateconditionmap.lovable.app",
-  "ran_at": "2026-10-29T20:11:35.247Z",
+  "ran_at": "2026-10-29T22:24:20.698Z",
   "modelHit": 7,
   "fbHit": 3,
   "scored": 7,
   "rows": [
     {
       "name": "BP targets",
-      "expect": ["E8"],
+      "expect": [
+        "E8"
+      ],
       "mode": "nemotron",
-      "model": ["E8", "E2", "E4"],
-      "fallback": ["E1", "E2", "E4"],
-      "matched": ["E8"]
+      "model": [
+        "E8",
+        "E2",
+        "E4"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "matched": [
+        "E8"
+      ]
     },
     {
       "name": "GLP-1",
-      "expect": ["E7"],
+      "expect": [
+        "E7"
+      ],
       "mode": "nemotron",
-      "model": ["E7", "E2", "E6"],
-      "fallback": ["E1", "E2", "E4"],
-      "matched": ["E7"]
+      "model": [
+        "E7",
+        "E2",
+        "E6"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "matched": [
+        "E7"
+      ]
     },
     {
       "name": "Kidney screening",
-      "expect": ["E1"],
+      "expect": [
+        "E1"
+      ],
       "mode": "nemotron",
-      "model": ["E1", "E4", "E2"],
-      "fallback": ["E1", "E2", "E4"],
-      "matched": ["E1"]
+      "model": [
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "matched": [
+        "E1"
+      ]
     },
     {
       "name": "Metformin dose",
-      "expect": ["E4"],
+      "expect": [
+        "E4"
+      ],
       "mode": "nemotron",
-      "model": ["E4", "E2", "E1"],
-      "fallback": ["E1", "E2", "E4"],
-      "matched": ["E4"]
+      "model": [
+        "E4",
+        "E2",
+        "E1"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "matched": [
+        "E4"
+      ]
     },
     {
       "name": "ACE and ARB",
-      "expect": ["E5"],
+      "expect": [
+        "E5"
+      ],
       "mode": "nemotron",
-      "model": ["E5", "E2", "E6"],
-      "fallback": ["E1", "E2", "E5"],
-      "matched": ["E5"]
+      "model": [
+        "E5",
+        "E2",
+        "E6"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E5"
+      ],
+      "matched": [
+        "E5"
+      ]
     },
     {
       "name": "Heart failure hospital stays",
-      "expect": ["E3", "E10"],
+      "expect": [
+        "E3",
+        "E10"
+      ],
       "mode": "nemotron",
-      "model": ["E3", "E10", "E4"],
-      "fallback": ["E1", "E2", "E4"],
-      "matched": ["E3", "E10", "E4"]
+      "model": [
+        "E3",
+        "E10",
+        "E1"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "matched": [
+        "E3",
+        "E10"
+      ]
     },
     {
       "name": "Finerenone",
-      "expect": ["E6", "E10", "E12"],
+      "expect": [
+        "E6",
+        "E10",
+        "E12"
+      ],
       "mode": "nemotron",
-      "model": ["E12", "E6", "E1"],
-      "fallback": ["E1", "E2", "E4"],
-      "matched": ["E12", "E6"]
+      "model": [
+        "E12",
+        "E6",
+        "E1"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E4"
+      ],
+      "matched": [
+        "E12",
+        "E6"
+      ]
     },
     {
       "name": "No concern given",
       "expect": [],
       "mode": "nemotron",
-      "model": ["E2", "E4", "E5"],
-      "fallback": ["E1", "E2", "E4"],
+      "model": [
+        "E2",
+        "E4",
+        "E5"
+      ],
+      "fallback": [
+        "E1",
+        "E2",
+        "E4"
+      ],
       "matched": []
     }
   ]
