@@ -5,6 +5,7 @@ import {
   floorNote,
   potassiumNote,
   filterEligible,
+  mentionsUrgentSymptoms,
   fallbackPoints,
   type BriefPoint,
   type Card,
@@ -679,8 +680,8 @@ function YouToldUs({ a, isExample }: { a: Answers; isExample: boolean }) {
         )}
       </dl>
       <p className="mt-2 text-xs text-muted-foreground">
-        Answers entered by the caregiver. Not checked against the medical record. Test dates were
-        not collected.
+        Answers entered by the caregiver. Not checked against the medical record. Test results are
+        copied as entered, not interpreted, and test dates were not collected.
       </p>
     </section>
   );
@@ -775,6 +776,16 @@ function Brief({
 
       <YouToldUs a={answers} isExample={isExample} />
 
+      {mentionsUrgentSymptoms(answers.worry) && (
+        <p
+          role="alert"
+          className="mb-4 rounded-md border-2 border-destructive bg-card p-3 text-sm font-bold text-destructive"
+        >
+          You wrote about symptoms that may need urgent care. If this is happening now, call 911 or
+          your local emergency number. This app cannot assess symptoms.
+        </p>
+      )}
+
       <p className="mb-4 rounded-md border border-border bg-card p-3 text-sm">
         For planning questions for a visit. This app does not check symptoms or decide which
         treatment is right.
@@ -814,6 +825,14 @@ function Brief({
           <p className="mb-2 text-sm text-muted-foreground">
             Numbers show the order of the questions, not how urgent they are.
           </p>
+          {result.mode === "nemotron" &&
+            answers.worry.trim() &&
+            !result.points.some((p) => p.matches_concern) && (
+              <p className="mb-3 rounded-md border border-accent bg-accent/10 p-3 text-sm">
+                <strong>None of these cards speaks directly to the concern you wrote.</strong> Add
+                it to “Your own questions” below and ask the care team.
+              </p>
+            )}
           <ol className="flex flex-col gap-4">
             {result.points.map((p, i) => {
               const card = byId.get(p.card_id);
@@ -865,6 +884,11 @@ function Brief({
                       <span className="print-line" />
                     </div>
                   </div>
+                  {p.matches_concern && answers.worry.trim() && (
+                    <p className="mt-2 inline-block rounded-full border border-primary px-3 py-0.5 text-sm font-bold text-primary">
+                      Matches the concern you wrote
+                    </p>
+                  )}
                   <p className="mt-3">{displayPoint(p.point, card.topic)}</p>
                   {notes.map((n) => (
                     <p

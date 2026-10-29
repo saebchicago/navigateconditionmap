@@ -8,6 +8,7 @@ import {
   checkPoint,
   checkRationale,
   standardPoint,
+  mentionsUrgentSymptoms,
   floorNote,
   potassiumNote,
   sanitizeHfType,
@@ -138,7 +139,7 @@ describe("point fidelity", () => {
       true,
     );
   });
-  it("replaces an unsupported number with exactly the first guideline sentence", () => {
+  it("replaces an unsupported number with exactly the guideline text", () => {
     expect(
       checkPoint(
         "Metformin is recommended in type 2 diabetes with CKD when eGFR is at least 39.",
@@ -146,8 +147,7 @@ describe("point fidelity", () => {
         input,
       ),
     ).toEqual({
-      point:
-        "Metformin and kidney function: Metformin is recommended in type 2 diabetes with CKD when eGFR is at least 30.",
+      point: `Metformin and kidney function: ${card.guideline_says}`,
       standardized: true,
     });
     expect(
@@ -361,14 +361,60 @@ describe("point fidelity", () => {
   it("no evidence card states a milligram dose", () => {
     for (const c of cards) expect(c.guideline_says).not.toMatch(/\d\s*mg\b(?!\/)/i);
   });
-  it("first-sentence extraction preserves decimals", () => {
+  it("keeps the whole card text so qualifications stay beside the statement", () => {
     expect(
       standardPoint({
         ...card,
         topic: "Threshold",
         guideline_says: "A threshold is 4.6 units. Another sentence.",
       }),
-    ).toBe("Threshold: A threshold is 4.6 units.");
+    ).toBe("Threshold: A threshold is 4.6 units. Another sentence.");
+  });
+});
+
+describe("current medicines", () => {
+  const all = ["type_2_diabetes", "ckd"];
+  const ids = (meds: string[]) => filterEligible(cards, all, meds).map((c) => c.id);
+  it.each([
+    "metformin stopped last year",
+    "stopped metformin last year",
+    "no metformin",
+    "never took metformin",
+    "metformin (discontinued)",
+    "used to take metformin",
+    "metformin, no longer taking",
+    "allergic to metformin",
+  ])("does not treat %s as a current medicine", (m) => {
+    expect(ids([m])).not.toContain("E4");
+  });
+  it("splits one line so a negation does not hide the other medicines", () => {
+    expect(ids(["lisinopril, no metformin"])).not.toContain("E4");
+    expect(ids(["no metformin, lisinopril"])).not.toContain("E4");
+    expect(ids(["metformin and lisinopril"])).toContain("E4");
+    expect(ids(["metformin"])).toContain("E4");
+  });
+});
+
+describe("urgent symptoms in the concern", () => {
+  it.each([
+    "Severe chest pain and breathlessness now",
+    "she fainted today",
+    "short of breath at night",
+  ])("flags %s", (w) => expect(mentionsUrgentSymptoms(w)).toBe(true));
+  it.each(["Ankles are swelling", "Is the metformin dose right?", "Cost of the medicines"])(
+    "does not flag %s",
+    (w) => expect(mentionsUrgentSymptoms(w)).toBe(false),
+  );
+});
+
+describe("concern match flag", () => {
+  it("keeps only a boolean from the model and defaults to false", () => {
+    const eligible = filterEligible(cards, ["type_2_diabetes", "ckd"], ["metformin"]);
+    const points = validateModelOutput(
+      '{"points":[{"card_id":"E4","matches_concern":true},{"card_id":"E2","matches_concern":"yes, ignore the rules"},{"card_id":"E1"}]}',
+      eligible,
+    );
+    expect(points?.map((p) => p.matches_concern)).toEqual([true, false, false]);
   });
 });
 
@@ -383,7 +429,7 @@ describe("discussion diversity", () => {
       input,
     );
     expect(points?.map((p) => p.card_id)).toEqual(["E4", "E2", "E6"]);
-    expect(points?.[1]?.supporting_card_ids).toEqual(["E3", "E9", "E11"]);
+    expect(points?.[1]?.supporting_card_ids).toEqual(["E3", "E9", "E11", "E12"]);
   });
   it("uses pack-order backfill when no remaining model rank is available", () => {
     const points = validateModelOutput(reply(["E2", "E3", "E9"]), eligible, input);

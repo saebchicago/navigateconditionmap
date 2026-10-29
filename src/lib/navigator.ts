@@ -39,6 +39,8 @@ export interface BriefPoint {
   rationale: string;
   standardized?: boolean;
   supporting_card_ids?: string[];
+  /** Nemotron's yes/no judgment that the card addresses the caregiver's written concern. Shown only as a fixed label. */
+  matches_concern?: boolean;
 }
 
 export interface BriefResult {
@@ -64,7 +66,24 @@ const BRAND_TO_GENERIC: Record<string, string> = {
   actoplus: "metformin",
   prandimet: "metformin",
 };
-const NEGATED_MEDICINE = /^\s*(no|not|never|stopped|stop|off|discontinued|ex-)\b/i;
+// A medicine line counts as current only if nothing in it says otherwise. Missing a card is the safe direction.
+const NEGATED_MEDICINE =
+  /\b(no|not|never|stopped|stop|stopping|off|discontinued|ex-|quit|used to|previously|formerly|allergic|allergy|intolerant|ran out|held|holding|paused|swapped|switched)\b|\bno longer\b|\bcame off\b/i;
+/** Current medicines from free text. Splits "lisinopril, no metformin" into entries; a negation with no medicine name
+ *  ("metformin, no longer taking") also cancels the entry before it. */
+const currentMedicines = (medicines: string[]) => {
+  const kept: string[] = [];
+  for (const seg of medicines.flatMap((m) => m.split(/[,;\n]|\s+(?:and|plus)\s+/i))) {
+    if (!seg.trim()) continue;
+    if (NEGATED_MEDICINE.test(seg)) {
+      const names = [...MEDICINE_TERMS, ...Object.keys(BRAND_TO_GENERIC)];
+      if (!names.some((t) => seg.toLowerCase().includes(t))) kept.pop();
+      continue;
+    }
+    kept.push(seg);
+  }
+  return kept;
+};
 const normalizeMedicine = (m: string) => {
   const lower = m.toLowerCase();
   const brand = Object.keys(BRAND_TO_GENERIC).find((b) => lower.includes(b));
@@ -88,7 +107,7 @@ export function filterEligible(
   medicines: string[],
   hfType?: string,
 ): Card[] {
-  const meds = medicines.filter((m) => !NEGATED_MEDICINE.test(m)).map(normalizeMedicine);
+  const meds = currentMedicines(medicines).map(normalizeMedicine);
   const excluded = new Set(HF_TYPE_EXCLUDES[hfTypeKey(hfType)] ?? []);
   return cards.filter((c) => {
     if (excluded.has(c.id)) return false;
@@ -160,7 +179,7 @@ export const MEDICINE_TERMS = [
   "glucophage",
   "actos",
 ] as const;
-const SGLT2_IDS = new Set(["E2", "E3", "E9", "E11"]);
+const SGLT2_IDS = new Set(["E2", "E3", "E9", "E11", "E12"]);
 const NSMRA_IDS = new Set(["E6", "E10"]);
 const CLASS_GROUPS = [SGLT2_IDS, NSMRA_IDS];
 const classOf = (id: string) => CLASS_GROUPS.find((g) => g.has(id));
@@ -226,8 +245,8 @@ const containsTerm = (text: string, term: string) =>
   new RegExp(`\\b${term.replace(/ /g, "\\s+")}s?\\b`, "i").test(normalize(text));
 
 export function standardPoint(card: Card): string {
-  const firstSentence = card.guideline_says.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? card.guideline_says;
-  return `${card.topic}: ${firstSentence}`;
+  // The whole card text (at most about 400 characters), so qualifications such as "not advised" stay beside the statement.
+  return `${card.topic}: ${card.guideline_says}`;
 }
 
 // Allowlist: a generated sentence may only use words that appear in its own card (stem match on the first 5
@@ -406,6 +425,7 @@ export function validateModelOutput(
       // while using only its words ("is not recommended"), so it is never shown.
       point: standardPoint(card),
       standardized: true,
+      matches_concern: (p as BriefPoint).matches_concern === true,
       question: card.question_for_clinician,
       rationale: checkRationale(s((p as BriefPoint).rationale), card, input),
     });
@@ -446,3 +466,9 @@ export function sanitizeHfType(value: unknown): string | undefined {
     ? value
     : undefined;
 }
+
+const URGENT_CONCERN =
+  /\b(chest\s+(pain|pressure|tight)|can'?t\s+breathe|cannot\s+breathe|(severe|worse|worsening|sudden)\s+(shortness\s+of\s+)?breath|short(ness)?\s+of\s+breath|faint(ed|ing)?|passed\s+out|unconscious|confus(ed|ion)|stroke|slurred|seizure|vomiting\s+blood|blood\s+in\s+(stool|vomit))\b/i;
+
+/** True when the written concern mentions symptoms that may need urgent care. The app does not assess them. */
+export const mentionsUrgentSymptoms = (worry: string) => URGENT_CONCERN.test(worry);
