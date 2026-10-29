@@ -16,7 +16,7 @@ const { results, ran_at, base } = JSON.parse(readFileSync(file, "utf8")) as {
 
 const SGLT2 = ["E2", "E3", "E9", "E11"];
 const MRA = ["E6", "E10"];
-const MG = /\d+\s*mg\b/i;
+const MG = /\d+\s*mg\b(?!\s*\/)/i; // a dose in mg; "mg/g" is a lab unit
 const REL = /\b(mom|mother|dad|father|wife|husband|her|his|him|she|he|we|i|my|me|mine|our|us|your|yours|loved\s+one)\b/i;
 const pct = (a: number, b: number) => (b ? `${Math.round((100 * a) / b)}%` : "n/a");
 const quantile = (xs: number[], q: number) => {
