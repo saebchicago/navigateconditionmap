@@ -4,6 +4,8 @@ A caregiver brings a printed brief to the next appointment: up to three question
 
 The caregiver can reorder, remove, or add questions (up to five). The printout adds "Before you go" prompts (bring every bottle and the latest results; coverage and cost questions) and an "After the visit" notes page.
 
+**Why:** over 40 million people a day ask ChatGPT health questions, and 7 in 10 of those chats happen outside clinic hours ([OpenAI, Jan 2026](https://cdn.openai.com/pdf/2cb29276-68cd-4ec6-a5f4-c01c5e7a36e9/OpenAI-AI-as-a-Healthcare-Ally-Jan-2026.pdf), self-reported, not independently verified). Navigator gives caregivers questions tied to published guidelines, each with its source. More context: [docs/context.md](docs/context.md).
+
 **Live demo:** https://navigateconditionmap.lovable.app. No login. The app stores nothing you enter.
 
 **Educational only. Not medical advice.** Nebius x NVIDIA Global AI Hackathon, Best Apps and Agents track.
