@@ -1,185 +1,81 @@
 # Navigator by ConditionMap
 
-A caregiver appointment-brief tool for people living with heart failure, type 2 diabetes, and chronic kidney disease (any combination; kidney disease alone gets no questions). Caregivers answer three short steps and get up to 3 questions, each with a question to ask the clinician, the guideline text, and a DOI-linked source.
+A caregiver brings a printed brief to the next appointment: up to three questions for the clinician, each with the guideline text behind it and a DOI-linked source. It covers heart failure, type 2 diabetes, and chronic kidney disease, in any combination.
 
-**Live demo:** https://navigateconditionmap.lovable.app
+The caregiver can reorder, remove, or add questions (up to five). The printout adds "Before you go" prompts (bring every bottle and the latest results; coverage and cost questions) and an "After the visit" notes page.
 
-**Try it:** no login needed, and this app does not store what you enter. Pick conditions, add medicines and recent numbers if you have them, and get a brief.
+**Live demo:** https://navigateconditionmap.lovable.app. No login. The app stores nothing you enter.
 
-**Educational only. Not medical advice.** Submission for the Nebius x NVIDIA Global AI Hackathon (Best Apps and Agents track).
+**Educational only. Not medical advice.** Nebius x NVIDIA Global AI Hackathon, Best Apps and Agents track.
 
-## Evidence-first pipeline
+## How it works
 
 ```mermaid
 flowchart LR
-  A[Caregiver inputs<br/>conditions, medicines, numbers, worry] --> B[Step A: rule filter<br/>requires + medication_trigger]
-  P[(evidence-pack.json)] --> B
-  B --> C[Step B: NVIDIA Nemotron<br/>on Nebius Token Factory<br/>rank eligible card IDs]
-  C --> D[Step C: validator<br/>strip think, parse JSON,<br/>drop non-eligible IDs,<br/>one card per medicine class, backfill, cap 3]
-  D -->|valid| E[Brief: guideline text + source<br/>rendered from the pack]
-  D -->|invalid / error| F[Fallback: rule-based selection<br/>pack order, one card per medicine class, cap 3]
+  A[Caregiver inputs<br/>conditions, medicines, concern] --> B[Rule filter<br/>eligible evidence cards]
+  P[(evidence-pack.json<br/>12 cards)] --> B
+  B --> C[NVIDIA Nemotron<br/>on Nebius Token Factory<br/>orders card IDs]
+  C --> D[Validator<br/>eligible IDs only,<br/>one card per medicine class, cap 3]
+  D -->|valid| E[Brief rendered<br/>from the pack]
+  D -->|error| F[Rule-based fallback<br/>same selection, pack order]
   F --> E
 ```
 
-The model never supplies text you read. It only orders card IDs. Guideline text, questions, sources, and labels are always rendered from the evidence pack.
-
-Class dedupe and backfill (`src/lib/navigator.ts`, shared by the model path and the fallback): the brief keeps at most one card per medicine class, SGLT2 inhibitors (E2, E3, E9, E11, E12) and nonsteroidal MRAs (E6, E10). Other cards in the same class are listed as supporting cards. If the model ranks fewer than 3 usable topics, the remaining slots are filled from eligible cards in pack order, using the card's own guideline text. The fallback runs the same selection on eligible cards in pack order (for heart failure, E9 or E3 first depending on ejection fraction type), so it never needs the model.
+- **Nemotron chooses the order. The evidence pack supplies every word.** Each question, explanation, and source shown is the card's own text. The model returns card IDs and a yes/no concern-match flag, so it cannot reword a guideline.
+- Why: an audit got the model to write "Combining an ACE inhibitor with an ARB is advised for people with diabetes" using only words from the card, which reverses its meaning. Word checks cannot catch that, so model text is never shown.
+- The brief keeps one card per medicine class (SGLT2 inhibitors; nonsteroidal MRAs) and fills empty slots from eligible cards in pack order. The fallback uses the same selection without the model.
 
 ## How Nemotron and Nebius Token Factory are used
 
-- Server endpoint: `src/routes/api/public/navigator-brief.ts` (`POST /api/public/navigator-brief`), running server-side on Lovable Cloud hosting. The evidence pack is embedded at `src/server/evidence-pack.ts` (a test checks it matches `src/data/evidence-pack.json`).
-- Base URL `https://api.tokenfactory.nebius.com/v1`, OpenAI-compatible `POST /chat/completions`, `temperature 0`, `max_tokens 600`, 20 s timeout.
-- JSON mode: requests set `response_format: {"type": "json_object"}`, and the prompt requires one object of the form `{"points":[{"card_id":"E2"},{"card_id":"E4"}]}`, an ordering only. Any sentence the model adds is ignored. The validator still strips code fences and `<think>` blocks before parsing, and rejects anything that does not parse.
-- Thinking off: for Nemotron models the request sends `chat_template_kwargs: {"enable_thinking": false}`, so the token budget goes to the JSON brief instead of reasoning text.
-- Model selection: `NEBIUS_MODEL` if set; otherwise `GET /v1/models`, keep ids containing "nemotron", prefer "super", then "nano", then the first. Cached in memory. The model id and latency are returned and shown in the UI.
-- Health check: `POST {"health": true}` returns the selected model and the list of Nemotron model ids (never the key).
+- **Route:** `POST /api/public/navigator-brief` (`src/routes/api/public/navigator-brief.ts`), server-side, so `NEBIUS_API_KEY` never reaches the browser.
+- **API:** `https://api.tokenfactory.nebius.com/v1/chat/completions` (OpenAI-compatible), `temperature 0`, `max_tokens 600`, 20 s timeout.
+- **Model:** `NEBIUS_MODEL` if set; otherwise `GET /v1/models`, prefer a Nemotron "super" model, then "nano". Live: `nvidia/nemotron-3-super-120b-a12b`. The model id and latency are shown on the results page.
+- **JSON mode:** `response_format: {"type": "json_object"}`; the reply is `{"points":[{"card_id":"E2","matches_concern":false}]}`. Anything else is discarded.
+- **Thinking off:** `chat_template_kwargs: {"enable_thinking": false}`, so the token budget goes to the answer.
+- **Health check:** `POST {"health": true}` returns the selected model (never the key).
+
+## Results
+
+30 synthetic caregiver cases against the live site, build `9caafa7` (Oct 29, 2026):
+
+- Nemotron answered 28 of 30. The other 2 are kidney-only cases with no eligible cards, so they use the fallback by design.
+- Model response time: median 0.9 s, 90th percentile 1.1 s.
+- Six structural rules (at most 3 points, one card per class, eligible cards only, verbatim questions, no mg dose, no relationship words): 0 violations.
+- Concern-aware ranking, 7 author-chosen cases (re-run Oct 29 after the E7 and E12 wording change): Nemotron put the expected card in the top 3 in 7 of 7; the rule fallback in 3 of 7.
+
+These measure structure and ordering, not clinical correctness, and the sample is small. Full tables, earlier builds, and how to re-run: [docs/evaluation.md](docs/evaluation.md).
+
+## Safety design
+
+- Emergency banner (call 911) on every page. Concerns that mention urgent symptoms, such as chest pain or fainting, add a call-911 notice.
+- Eligibility is rule-based. Cards for a different heart failure type are dropped. A medicine line counts as current only if nothing in it says "stopped", "no", or similar; step 2 shows which lines were counted so the caregiver can correct them.
+- Test results are never sent to the model. Cards that name an eGFR or potassium level ask the caregiver to bring the latest result instead of comparing numbers.
+- Server inputs are whitelisted, bodies over 8 KB are rejected, and each IP is rate-limited (60 requests per 10 minutes).
+- Any error falls back to the rule-based brief, labeled as such.
+- **Privacy:** the app saves nothing and adds no analytics or cookies of its own. Conditions, medicines, heart failure type, and the concern text go through this app's server to Nebius each time a brief is made. Nebius's legal quick guide says requests may be retained by default unless Zero Data Retention is enabled; that setting is not confirmed for this account. The hosting platform (Lovable, behind Cloudflare) runs its own analytics and cookies, and fonts load from Google Fonts.
 
 ## Setup
 
-Prerequisites: [Bun](https://bun.sh) (tested with 1.4.4) and Node 22 or newer (tested with 22.22). The lockfile is `bun.lock`. No other tools or environment variables are needed.
+Requires [Bun](https://bun.sh) (tested 1.4.4) and Node 22+.
 
 ```bash
 bun install --frozen-lockfile
-bunx vitest run    # tests: pipeline, wording checks, request guards
-bun run build      # production build
-bun run dev        # local dev server
+bunx vitest run    # pipeline, wording checks, request guards
+bun run build
+bun run dev
 ```
 
-Without a key the app runs end to end using the rule-based fallback and shows a notice that the AI service is unavailable.
+Without a key the app runs end to end on the rule-based fallback. For live Nemotron: create a key at https://tokenfactory.nebius.com, run `cp .env.example .env`, set `NEBIUS_API_KEY` (optional `NEBIUS_MODEL`), and restart. `.env` is git-ignored. On the hosted app the key is a Lovable project secret.
 
-For live Nemotron answers:
+## Evidence
 
-1. Create an API key in the Nebius Token Factory console (https://tokenfactory.nebius.com, API keys).
-2. `cp .env.example .env` and set `NEBIUS_API_KEY=...` (optional `NEBIUS_MODEL=`). `.env` is git-ignored. Never commit a key.
-3. Restart `bun run dev`. The model id and response time then appear under "How this page was made" on the results page.
-
-On the hosted version the key is set as a secret in the Lovable project settings.
-
-## Repository map
-
-| Path                                       | What it is                                                                                                     |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `src/data/evidence-pack.json`              | The 12 guideline cards and their sources (source of truth for all medical text)                                |
-| `src/server/evidence-pack.ts`              | Server copy of the same pack (a test checks the two are identical)                                             |
-| `src/lib/navigator.ts`                     | Card filter, model-output validator, wording checks, fallback                                                  |
-| `src/routes/api/public/navigator-brief.ts` | The server route that calls Nebius Token Factory (key read at line 97, `/chat/completions` call from line 148) |
-| `src/server/request-guards.ts`             | Body size cap and per-IP rate limit                                                                            |
-| `src/routes/index.tsx`                     | The three-step form, results page, and print layout                                                            |
-| `scripts/eval`                             | 30 synthetic cases, the live runner, and the scorer                                                            |
-| `docs/screenshots`                         | Screenshots of the app with synthetic example answers                                                          |
-
-## Screenshots
-
-All screenshots use synthetic example answers, not a real person. The results page shows real output from the live model.
-
-![Step 1: choose conditions](docs/screenshots/1-start.png)
-![Results: up to three questions, each with its source](docs/screenshots/2-results.png)
-![Printed brief with notes lines](docs/screenshots/3-print.png)
-![Results on a phone-sized screen](docs/screenshots/4-mobile.png)
-
-## Evaluation
-
-`scripts/eval` runs 30 synthetic caregiver cases (no real patient data) against the live endpoint and scores the responses (`bun scripts/eval/score.ts scripts/eval/after-9caafa7.json`). Result files: `baseline.json` (build `814a82d`), `after.json` (`507bb50`), `after-c9d432b.json`, `after-791de5e.json`, and `after-019bcea.json`, and `after-9caafa7.json` (current build). All runs were on Oct 29, 2026.
-
-|                                       | `814a82d`                                                | `507bb50`                           | `c9d432b`                          | `791de5e`                                                         | Current (`9caafa7`)                |
-| ------------------------------------- | -------------------------------------------------------- | ----------------------------------- | ---------------------------------- | ----------------------------------------------------------------- | ---------------------------------- |
-| Answered by Nemotron                  | 27 of 30                                                 | 28 of 30                            | 28 of 30                           | 27 of 30                                                          | 28 of 30                           |
-| Fallback                              | 3 (2 kidney-only cases with no cards, 1 Nebius HTTP 529) | 2 (the same kidney-only cases)      | 2 (the same kidney-only cases)     | 3 (2 kidney-only cases, 1 unusable model output; 0 of 6 on retry) | 2 (the kidney-only cases)          |
-| Model response time (server-measured) | median 1.9 s, p90 5.4 s, max 12.2 s                      | median 1.7 s, p90 5.1 s, max 13.8 s | median 1.5 s, p90 1.9 s, max 2.1 s | median 0.9 s, p90 1.6 s, max 1.9 s                                | median 0.9 s, p90 1.1 s, max 1.3 s |
-| Model-written sentences shown         | 64 of 67 (96%)                                           | 52 of 67 (78%)                      | 12 of 67 (18%)                     | 0 (not shown by design)                                           | 0 (not shown by design)            |
-| Violations of 6 structural rules\*    | 0                                                        | 0                                   | 0                                  | 0                                                                 | 0                                  |
-| Heart failure cards that did not fit  | see note                                                 | see note                            | 0                                  | 0                                                                 | 0                                  |
-
-\*At most 3 points, at most one card per medicine class, only eligible cards, questions verbatim from the card, no milligram dose, no relationship words.
-
-How the design changed: each stricter wording check replaced more of the model's sentences with the guideline's own wording (4%, 22%, then 82% replaced). An adversarial test of 171 unsafe sentences passed 159 through the earlier checker and 15 through the allowlist (13 were cards' own wording). A later audit then reproduced a reversal on the live site: a crafted concern field made the model write "Combining an ACE inhibitor with an ARB is advised for people with diabetes", which used only words from the card and passed the allowlist. A word check cannot catch negation or a swapped subject. From build `791de5e` on, the model orders cards and writes no text that is shown, and the same attack returns the card's own wording. The adversarial test script is not included in this repository. The scores cover structure and listed wording rules only. They do not establish clinical correctness, and thirty synthetic cases from one day is a small sample. The older runs sent test results to the endpoint; the server now ignores them.
-
-### Does Nemotron's ranking beat the rule-based fallback?
-
-`scripts/eval/ranking.ts` fixes eight situations and, for seven of them, a concern with a predefined expected card (chosen by the author before running). It then checks whether that card is in the top 3. Result on build `9caafa7` (`scripts/eval/ranking.json`): Nemotron 7 of 7, rule fallback 3 of 7. Nemotron's ranking changes which cards appear in response to the concern; the fallback cannot. This is seven author-chosen cases, not a general measure of ranking quality, and it does not measure clinical usefulness. The model also returns a yes or no "matches the concern" flag per card, shown only as a fixed label. `scripts/eval/stability.ts` repeats four of those concerns five times each: the expected card was in the top 3 in 20 of 20 calls, and the full top 3 was identical across repeats in 18 of 20 (the variation was in the second and third slots; one call right after a deployment returned a different list). That flag is the model's judgment and is not measured: in one case it also marked the metformin card for a heart failure concern.
-
-### Running the evaluation yourself
-
-```bash
-bun scripts/eval/run.ts https://navigateconditionmap.lovable.app scripts/eval/mine.json
-bun scripts/eval/score.ts scripts/eval/mine.json
-```
-
-The runner sends 30 live requests paced 62 seconds apart by default (about 31 minutes; `EVAL_PACE_MS` changes the pace). The endpoint limits each IP address, so do not run other traffic from the same address meanwhile.
-
-## Context: demand for AI in health navigation
-
-These are context figures from other organizations' own data. Navigator does not use them at runtime, and they do not measure whether Navigator helps.
-
-- **OpenAI** ([AI as a Healthcare Ally, January 2026](https://cdn.openai.com/pdf/2cb29276-68cd-4ec6-a5f4-c01c5e7a36e9/OpenAI-AI-as-a-Healthcare-Ally-Jan-2026.pdf), from its ChatGPT usage data and a survey): more than 5% of all ChatGPT messages are about healthcare, over 40 million people ask healthcare questions daily, and seven in 10 health conversations happen outside normal clinic hours. OpenAI's report is promotional and its figures are not independently verified.
-- **Anthropic Economic Index** ([anthropic.com/economic-index](https://www.anthropic.com/economic-index), CC BY 4.0, May 2026 snapshot): 3.31% of sampled Claude conversations match tasks commonly done by healthcare practitioners and technical occupations. The index does not measure health questions from patients or caregivers.
-- **Google**: the official Google Trends API is a gated alpha (applications only as of the date of writing), so this project uses no search-interest data. Search interest for the three conditions can be checked in the Trends web interface.
-
-The app does not run live web or search queries. Its content comes only from the twelve evidence cards, so every sentence can be traced to a published guideline.
-
-## Evidence pack change log
-
-- **Oct 29, 2026, E7 and E12 wording tightened by the builder (not clinician reviewed).** The trial sentences now state only what the NEJM papers report, checked on PubMed.
-  - E7 before: "A large trial (FLOW), in people with type 2 diabetes, CKD, and raised urine albumin, showed semaglutide protected the kidneys." After: FLOW (NEJM 2024; [doi:10.1056/NEJMoa2403347](https://doi.org/10.1056/NEJMoa2403347)) found a 24% lower risk of a combined outcome (kidney failure, a large drop in kidney function, or death from kidney or heart causes) than placebo.
-  - E12 before: "A study (CONFIDENCE) showed this was safe and lowered urine albumin more than either drug alone." After: a 6-month study (CONFIDENCE, NEJM 2025; [doi:10.1056/NEJMoa2410659](https://doi.org/10.1056/NEJMoa2410659)) found that starting both together lowered urine albumin more than either drug alone with no unexpected safety problems, and did not measure kidney failure or other long-term outcomes.
-  - The guideline sentences on both cards were not changed, and the ADA 2026 text could not be re-checked from this environment.
-
-## Known limitations
-
-- Every kidney card requires type 2 diabetes, so kidney disease on its own returns no cards, and kidney disease with heart failure shows heart failure cards only. The app says so on screen.
-- Twelve cards from five guideline documents. This is not a complete clinical guideline set, and the cards have not had a clinician review.
-- The rate limit and the model-list cache live in one server instance's memory, so the limits are approximate.
-
-## Project history and what changed during the hackathon
-
-The hackathon submission period began on August 26, 2026. This repository was created on October 28, 2026, and every commit in it is dated October 28 or 29, 2026. An earlier prototype (a Netlify and Tavily version) is in `saebchicago/conditionmap-navigator`, also from October 28. The history here is:
-
-| Date   | Commit    | Change                                                                                                             |
-| ------ | --------- | ------------------------------------------------------------------------------------------------------------------ |
-| Oct 28 | `2ed2f96` | v1.0: evidence-pack pipeline, Nemotron ranking, validator, fallback                                                |
-| Oct 28 | `814a82d` | Evidence wording fixes, request guards, README accuracy                                                            |
-| Oct 29 | `693a655` | Interface pass: personal results summary, print fixes, new identity                                                |
-| Oct 29 | `4be4b12` | Stricter claim checks, steadier output, evaluation scripts                                                         |
-| Oct 29 | `f85f9d8` | Baseline evaluation results                                                                                        |
-| Oct 29 | `18d217d` | Explain the kidney-only gap on screen                                                                              |
-| Oct 29 | `6cfd533` | Privacy copy revised, advice-word checks, input whitelist, print fix                                               |
-| Oct 29 | `507bb50` | Visit-day layout pass: hidden ranking commentary, kidney-only notice, compact print brief                          |
-| Oct 29 | `973eeac` | Post-publish evaluation results                                                                                    |
-| Oct 29 | `ac18309` | README, setup, CI, screenshots                                                                                     |
-| Oct 29 | `c9d432b` | Allowlist wording check, test results no longer sent to the model, audit fixes                                     |
-| Oct 29 | `6e3d772` | Evaluation results for the allowlist build                                                                         |
-| Oct 29 | `791de5e` | Model only orders cards; its sentences are never shown (fixes a reversal found in audit)                           |
-| Oct 29 | `019bcea` | Current-medicine parsing, full card text, urgent-symptom notice, concern-match label, E12 grouped with SGLT2 cards |
-| Oct 29 | `1623d84` | Medicine confirmation, move, remove, and add-another questions                                                     |
-| Oct 29 | `9caafa7` | Lighter page (font 122 KB to 51 KB), 39 unused dependencies removed                                                |
-
-ConditionMap (conditionmap.com) is the author's separate platform and predates the submission period. The Navigator code in this repository was written during the period: the first commit is dated October 28, 2026.
-
-Parts of the code were written with AI coding assistants (Claude Code and Lovable). The author made the product, content, and safety decisions and reviewed the changes.
-
-## Feedback on Nebius Token Factory and NVIDIA Nemotron
-
-What worked, from building and running this app:
-
-- The OpenAI-compatible API worked with a plain `fetch` call and no SDK.
-- JSON mode (`response_format`) returned parseable objects in the evaluation runs, and `chat_template_kwargs.enable_thinking: false` kept replies fast: median 0.9 s and 90th percentile 1.6 s over 27 answered cases in the current build (1.7 s and 5.1 s in build 507bb50).
-- `GET /v1/models` made it possible to pick a Nemotron model at runtime instead of hard-coding one.
-
-What would help:
-
-- Model ids use mixed naming (for example `nvidia/nemotron-3-super-120b-a12b` next to `nvidia/Nemotron-3_5-Lightning` and `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`), which makes pattern-based selection brittle. Stable aliases would help.
-- Clearer documentation of which Nemotron models support JSON mode and the thinking switch.
-- One request in the first 90 evaluation calls returned HTTP 529 (overloaded). Published guidance on retry behavior and expected capacity would help.
-
-## Evidence sources
+All medical text lives in `src/data/evidence-pack.json` (server copy in `src/server/evidence-pack.ts`; a test keeps them identical). Wording changes: [docs/evidence-changelog.md](docs/evidence-changelog.md).
 
 - ADA/KDIGO 2022. Diabetes Management in CKD: A Consensus Report. de Boer IH, et al. doi:[10.2337/dci22-0027](https://doi.org/10.2337/dci22-0027)
 - ESC 2023 Focused Update of the 2021 HF Guidelines. McDonagh TA, Metra M, et al. doi:[10.1002/ejhf.3024](https://doi.org/10.1002/ejhf.3024)
 - AHA/ACC/HFSA 2022 HF Guideline. Heidenreich PA, Bozkurt B, et al. doi:[10.1161/CIR.0000000000001063](https://doi.org/10.1161/CIR.0000000000001063)
 - ADA Standards of Care in Diabetes 2026, Section 10: Cardiovascular Disease and Risk Management. ADA Professional Practice Committee. doi:[10.2337/dc26-S010](https://doi.org/10.2337/dc26-S010)
 - ADA Standards of Care in Diabetes 2026, Section 11: Chronic Kidney Disease and Risk Management. ADA Professional Practice Committee. doi:[10.2337/dc26-S011](https://doi.org/10.2337/dc26-S011)
-
-### Evidence cards
 
 | Card | Topic                                                              | Shown when                              | Source                     |
 | ---- | ------------------------------------------------------------------ | --------------------------------------- | -------------------------- |
@@ -196,29 +92,38 @@ What would help:
 | E11  | SGLT2 inhibitor to prevent heart failure                           | Type 2 diabetes + CKD                   | ESC 2023                   |
 | E12  | SGLT2 inhibitor and finerenone together                            | Type 2 diabetes + CKD                   | ADA Standards 2026, Sec 11 |
 
-## Safety design
+## Known limitations
 
-- Always-visible emergency banner (call 911).
-- Deterministic eligibility filter around the model. When the heart failure type is known, cards written for a different type are dropped. Brand names that contain metformin trigger the metformin card; entries such as "no metformin" do not.
-- The model only chooses the order of the cards and flags which cards match the caregiver's concern (a boolean, shown as a fixed label). Every question, explanation, and source shown is the evidence card's own wording, shown in full so that qualifications (for example, that an ACE inhibitor and an ARB are not advised together) stay beside the statement. A model-drafted sentence can reverse a card using only that card's words, so none is shown.
-- The allowlist check (`outsideVocabulary` in `src/lib/navigator.ts`) and the other wording checks remain in the code as a second layer, but the shown text no longer depends on them. Because the model writes nothing that is shown, the concern field can only change the order of real cards.
-- Test results are not sent to the model. The model ranks using conditions, medicines, heart failure type, and the caregiver's concern. A card that names an eGFR level or potassium shows a note that asks the caregiver to bring the latest result to the care team; it does not compare the caregiver's number with the card.
-- Inputs are limited server-side: conditions to the three known keys, heart failure type to the four UI options, numbers to five known fields, and the endpoint has a body-size cap and a per-IP rate limit (60 requests per 10 minutes).
-- A medicine line is treated as current only if nothing in it says otherwise ("stopped", "no", "used to take", "allergic", and similar), and lines are split on commas, semicolons, "and", and "plus". Wrongly dropping a card is the safe direction. Free text can still be misread, so confirm the medicine list with the care team.
-- If the concern field mentions symptoms such as chest pain or fainting, the results page shows a call-911 notice. The app does not assess symptoms. If no card matches the written concern, the page says so and points to "Your own questions".
-- Above it, a "Before you go" block of general prompts (bring every medicine bottle and the latest results; fixed questions about plan coverage, prior authorization, and help with cost). These are labeled as not coming from the 12 guideline cards and contain no prices. The page also links to ValuesInCare (valuesincare.com), a separate site by the same builder; nothing from this page is sent to it.
-- The printout ends with an "After the visit" page of fixed prompts for the caregiver's own notes (what the care team said, who does what and by when, what still needs explaining, and saying the plan back). The app does not generate or check what the caregiver writes there. The concern box warns not to enter names or test results, because that text is sent to the AI provider; test results typed into the dedicated number fields are never sent.
-- Step 2 shows which medicine entries are counted as current and which are left out (for example "stopped" or "no"), so the caregiver can correct them. On the results page the caregiver can move a question up, remove it, restore it, or add another one from the next cards in the same order (up to five).
-- Fallback to rule-based selection on any error, clearly labeled.
-- This app saves nothing you enter, and its own code adds no analytics or cookies. Conditions, medicines, heart failure type, and the caregiver's concern are sent through this app's server to the AI provider (Nebius) each time a brief is made; test results stay in the browser. The hosting platform (Lovable, behind Cloudflare) runs its own visitor analytics, which can include page views and clicks, and sets a bot-protection cookie and an analytics session cookie. Fonts load from Google Fonts. According to Nebius's legal quick guide (docs.tokenfactory.nebius.com/legal/legal-quick-guide, as summarized in a search result on Oct 30, 2026; the page itself could not be opened from the build environment), requests may be retained by default for speculative decoding unless Zero Data Retention is enabled on the account, and Nebius states it does not train its own models on customer data. Whether Zero Data Retention is enabled for this app's account has not been confirmed in this repository. What the hosting platform retains has not been verified.
+- Every kidney card requires type 2 diabetes, so kidney disease alone returns no cards, and kidney disease with heart failure shows heart failure cards only. The app says so on screen.
+- Twelve cards from five guideline documents, not a complete guideline set, and not yet clinician-reviewed ([review packet](docs/clinical-review-packet.md)).
+- The rate limit and model cache live in one server instance's memory, so limits are approximate.
+
+## Built during the hackathon
+
+The submission period began August 26, 2026. This repository was created October 28, 2026, and every commit is dated October 28 to 30. ConditionMap (conditionmap.com) is the author's separate, earlier platform; the Navigator code here is new. Parts were written with AI coding assistants (Claude Code, Lovable); the author made the product, content, and safety decisions and reviewed the changes. Commit-by-commit history: [docs/history.md](docs/history.md).
+
+## Feedback on Nebius Token Factory and NVIDIA Nemotron
+
+- **Worked:** plain `fetch`, no SDK; JSON mode returned parseable objects in the evaluation runs; with thinking off, median model latency was 0.9 s; `GET /v1/models` allowed runtime model choice.
+- **Would help:** consistent model ids (`nvidia/nemotron-3-super-120b-a12b` sits beside `nvidia/Nemotron-3_5-Lightning`), clearer docs on which models support JSON mode and the thinking switch, and retry guidance for HTTP 529 (1 of the first 90 evaluation calls).
+
+## Repository map
+
+| Path                                       | Contents                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------ |
+| `src/data/evidence-pack.json`              | The 12 cards and sources, the only source of medical text                |
+| `src/lib/navigator.ts`                     | Card filter, model-output validator, fallback                            |
+| `src/routes/api/public/navigator-brief.ts` | Server route that calls Nebius Token Factory                             |
+| `src/server/request-guards.ts`             | Body size cap, per-IP rate limit                                         |
+| `src/routes/index.tsx`                     | Three-step form, results page, print layout                              |
+| `scripts/eval`                             | 30 synthetic cases, live runner, scorer                                  |
+| `docs/`                                    | Evaluation, history, evidence change log, AI-demand context, screenshots |
+
+![Results: up to three questions, each with its source](docs/screenshots/2-results.png)
 
 ## License
 
-Copyright (C) 2026 Saeb A. Ahsan. Built by Saeb Ahsan.
-
-Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). See [LICENSE](LICENSE). If you run a modified version as a network service, AGPL-3.0 requires you to offer its users the corresponding source.
-
-Commercial licenses are available for uses that cannot meet AGPL-3.0 terms. Contact via [conditionmap.com](https://conditionmap.com).
+Copyright (C) 2026 Saeb A. Ahsan. Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0); see [LICENSE](LICENSE). If you run a modified version as a network service, AGPL-3.0 requires you to offer its users the source. Commercial licenses: contact via [conditionmap.com](https://conditionmap.com).
 
 ## Trademarks
 

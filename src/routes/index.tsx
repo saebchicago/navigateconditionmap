@@ -25,13 +25,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Up to 3 questions for a visit about heart failure, type 2 diabetes, or kidney disease, each tied to a published guideline or consensus report. Free, no login, and this app does not store your answers. Educational only.",
+          "Up to 3 guideline-backed questions for a heart failure, type 2 diabetes, or kidney disease visit. Free, no login, nothing stored. Educational only.",
       },
       { property: "og:title", content: "Navigator by ConditionMap" },
       {
         property: "og:description",
         content:
-          "Up to 3 questions for the next visit, each tied to a published guideline. Ordered by NVIDIA Nemotron. Every word shown comes from the guideline card.",
+          "Up to 3 guideline-backed questions for the next visit. NVIDIA Nemotron orders them; every word comes from the guideline card.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
@@ -298,15 +298,13 @@ function Index() {
                 Walk into the next visit with good questions.
               </h1>
               <p className="mt-2 text-muted-foreground">
-                Helping someone with heart failure, type 2 diabetes, or kidney disease? Answer three
-                short steps. Get up to 3 questions to ask the care team. Each question is written
-                from a published guideline card. Kidney questions are for people who also have type
-                2 diabetes. You can print the list.
+                Caring for someone with heart failure, type 2 diabetes, or kidney disease? Three
+                short steps give you up to 3 questions for the care team, each from a published
+                guideline. Print them and bring them.
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                This prototype uses 12 guideline cards and has not yet been reviewed by a clinician.
-                It uses NVIDIA Nemotron on Nebius Token Factory to put the questions in order. All
-                wording comes from the guideline cards.
+                Prototype: 12 guideline cards, not yet clinician-reviewed. NVIDIA Nemotron on Nebius
+                Token Factory orders the questions; the cards supply every word.
               </p>
             </div>
 
@@ -391,15 +389,13 @@ function Index() {
               >
                 {conditions.length === 1 ? (
                   <>
-                    <strong>This version has no questions for kidney disease alone.</strong> Its
-                    kidney questions are for people who also have type 2 diabetes. If the person has
-                    other conditions, choose them too.
+                    <strong>No questions for kidney disease alone yet.</strong> Kidney questions
+                    require type 2 diabetes. Add any other conditions the person has.
                   </>
                 ) : (
                   <>
-                    <strong>No kidney questions are included.</strong> In this version, kidney
-                    questions are only for people who also have type 2 diabetes. Questions for your
-                    other choices are included.
+                    <strong>No kidney questions included.</strong> They require type 2 diabetes.
+                    Questions for your other choices are included.
                   </>
                 )}
               </p>
@@ -426,9 +422,8 @@ function Index() {
               Medicines the person takes
             </label>
             <p id="meds-hint" className="mb-3 text-sm text-muted-foreground">
-              Enter one medicine per line. Use the spelling on the medicine label if you can. You
-              can leave this blank. Only add medicines the person already takes. The names below are
-              shortcuts, not suggestions.
+              Optional. One medicine per line, spelled as on the label, and only medicines the
+              person takes now. The names below are shortcuts, not suggestions.
             </p>
             <textarea
               id="meds"
@@ -485,8 +480,7 @@ function Index() {
               Latest test results and blood pressure
             </h2>
             <p className="mb-4 text-sm text-muted-foreground">
-              All fields are optional. Use the latest results you have. Leave any blank if you do
-              not know.
+              Optional. Use the latest results you have.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               {NUMBERS.map((n) => (
@@ -527,8 +521,8 @@ function Index() {
               What worries you most before this visit?
             </label>
             <p id="worry-hint" className="text-sm text-muted-foreground">
-              In your own words. Optional. Please do not include names, birth dates, test results,
-              or other details that identify someone. This text is sent to the AI provider.
+              Optional. This text goes to the AI provider, so leave out names, birth dates, test
+              results, and other identifying details.
             </p>
             <textarea
               id="worry"
@@ -544,9 +538,8 @@ function Index() {
             </p>
             <Nav back={() => go(1)} next={generate} nextLabel="Make my questions" />
             <p className="mt-3 text-right text-sm text-muted-foreground">
-              Your conditions, medicines, heart failure type, and concern are sent to the AI
-              provider (Nebius) to make this page. Test results stay in your browser. This app does
-              not save anything you enter.
+              Conditions, medicines, heart failure type, and concern go to the AI provider (Nebius).
+              Test results stay in your browser. This app saves nothing.
             </p>
           </section>
         )}
@@ -648,14 +641,13 @@ function Index() {
             </p>
           </details>
           <p>
-            This app saves nothing you enter and its own code adds no analytics or cookies. Your
-            conditions, medicines, heart failure type, and concern go to the AI provider (Nebius)
-            each time you make a brief; test results stay in your browser. The hosting platform
-            (Lovable) runs its own visitor analytics, which can include page views and clicks, and
-            sets a bot-protection cookie and an analytics session cookie. Nebius's documentation
-            says it may keep requests by default, for speculative decoding, unless Zero Data
-            Retention is enabled on the account. Please do not enter names or identifying details.
-            Fonts load from Google Fonts.
+            This app saves nothing and adds no analytics or cookies of its own. Conditions,
+            medicines, heart failure type, and concern go to the AI provider (Nebius) for each
+            brief; test results stay in your browser. Nebius may keep requests by default, for
+            speculative decoding, unless Zero Data Retention is enabled. The host (Lovable) runs its
+            own analytics, including page views and clicks, and sets a bot-protection cookie and an
+            analytics cookie. Fonts load from Google Fonts. Do not enter names or identifying
+            details.
           </p>
         </div>
       </footer>
@@ -706,8 +698,7 @@ function Loading() {
         Putting your questions in order...
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        If the AI service is unavailable, you will still get questions from the published
-        guidelines.
+        If the AI service is down, you still get questions from the guidelines.
       </p>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-border">
         <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
@@ -767,8 +758,8 @@ function YouToldUs({ a, isExample }: { a: Answers; isExample: boolean }) {
         )}
       </dl>
       <p className="mt-2 text-xs text-muted-foreground">
-        Answers entered by the caregiver. Not checked against the medical record. Test results are
-        copied as entered, not interpreted, and test dates were not collected.
+        Entered by the caregiver, not checked against the medical record. Test results are copied as
+        entered, without dates or interpretation.
       </p>
     </section>
   );
@@ -898,14 +889,12 @@ function Brief({
       )}
 
       <p className="mb-4 rounded-md border border-border bg-card p-3 text-sm">
-        For planning questions for a visit. This app does not check symptoms or decide which
-        treatment is right.
+        For planning visit questions only. This app does not check symptoms or choose treatment.
       </p>
 
       {kidneyNote && result.points.length > 0 && (
         <p className="mb-4 rounded-md border border-border bg-card p-3 text-sm">
-          <strong>No kidney questions are included.</strong> In this version, kidney questions are
-          only for people who also have type 2 diabetes.
+          <strong>No kidney questions included.</strong> They require type 2 diabetes.
         </p>
       )}
 
@@ -913,13 +902,13 @@ function Brief({
         <p className="mb-4 rounded-md border-2 border-accent bg-accent/10 p-3 text-sm">
           {result.error === "rate_limited" ? (
             <>
-              <strong>The AI service has reached its request limit.</strong> These questions use the
-              guideline cards in their usual order. You can use this list now or try again later.
+              <strong>The AI service hit its request limit.</strong> These are the guideline cards
+              in their usual order. Use them now or try again later.
             </>
           ) : (
             <>
-              <strong>The AI service is unavailable.</strong> These questions use the guideline
-              cards in their usual order. The source links are still included.
+              <strong>The AI service is unavailable.</strong> These are the guideline cards in their
+              usual order, with sources.
             </>
           )}
         </p>
@@ -928,8 +917,8 @@ function Brief({
       {result.points.length === 0 ? (
         <p className="card-surface p-5">
           {kidneyOnly
-            ? "This version has no questions for kidney disease alone. Its kidney disease cards also require type 2 diabetes. Use Edit answers to go back and check the conditions you chose."
-            : "None of the guideline cards match these answers yet. Some cards depend on the medicines listed."}
+            ? "No questions for kidney disease alone yet: kidney cards require type 2 diabetes. Use Edit answers to check the conditions."
+            : "No guideline cards match these answers. Some cards depend on the medicines listed."}
         </p>
       ) : (
         <>
@@ -1108,8 +1097,7 @@ function Brief({
       <section className="card-surface print-card mt-4 p-5">
         <h2 className="font-serif text-xl font-semibold text-primary">Your own questions</h2>
         <label htmlFor="own" className="no-print mt-1 block text-sm text-muted-foreground">
-          Anything else to ask? What you write here will appear on your printout. It is kept only in
-          this open tab.
+          Anything else to ask? It prints with your list and stays only in this tab.
         </label>
         <textarea
           id="own"
@@ -1178,8 +1166,8 @@ function Brief({
       </section>
 
       <p className="mt-5 rounded-md border border-border bg-card p-3 text-sm font-bold">
-        Educational information from published guidelines. Not medical advice. Do not change
-        medicines based on this page. You and your care team decide what care is right.
+        Educational information from published guidelines, not medical advice. Do not change
+        medicines based on this page; decide care with the care team.
       </p>
 
       <details className="no-print mt-4 p-1 text-sm text-muted-foreground">
@@ -1199,10 +1187,9 @@ function Brief({
       <details className="no-print mt-3 p-1 text-sm text-muted-foreground">
         <summary className="focus-ring cursor-pointer font-bold">How this page was made</summary>
         <p className="mt-2">
-          Rules select guideline cards that match your answers. NVIDIA Nemotron, an AI model run
-          through Nebius Token Factory, puts them in order. Every question and explanation is the
-          guideline card's own wording, so the AI model writes none of the text you read. Your test
-          results are not sent to the AI model. This is not a clinical review.
+          Rules pick the guideline cards that fit your answers. NVIDIA Nemotron, run on Nebius Token
+          Factory, orders them. Every word shown is the card's own; the AI writes none of it. Test
+          results are not sent to the AI. This is not a clinical review.
         </p>
         <p className="mt-1">
           AI model: {result.mode === "nemotron" ? result.model : "none (rule-based)"}
