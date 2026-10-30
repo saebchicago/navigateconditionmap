@@ -652,8 +652,10 @@ function Index() {
             conditions, medicines, heart failure type, and concern go to the AI provider (Nebius)
             each time you make a brief; test results stay in your browser. The hosting platform
             (Lovable) runs its own visitor analytics, which can include page views and clicks, and
-            sets a bot-protection cookie and an analytics session cookie. Nebius's retention of what
-            it receives is not stated here. Fonts load from Google Fonts.
+            sets a bot-protection cookie and an analytics session cookie. Nebius's documentation
+            says it may keep requests by default, for speculative decoding, unless Zero Data
+            Retention is enabled on the account. Please do not enter names or identifying details.
+            Fonts load from Google Fonts.
           </p>
         </div>
       </footer>
