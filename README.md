@@ -153,6 +153,8 @@ The hackathon submission period began on August 26, 2026. This repository was cr
 | Oct 29 | `1623d84` | Medicine confirmation, move, remove, and add-another questions                                                     |
 | Oct 29 | `9caafa7` | Lighter page (font 122 KB to 51 KB), 39 unused dependencies removed                                                |
 
+ConditionMap (conditionmap.com) is the author's separate platform and predates the submission period. The Navigator code in this repository was written during the period: the first commit is dated October 28, 2026.
+
 Parts of the code were written with AI coding assistants (Claude Code and Lovable). The author made the product, content, and safety decisions and reviewed the changes.
 
 ## Feedback on Nebius Token Factory and NVIDIA Nemotron
