@@ -581,6 +581,15 @@ function Index() {
             {" · "}
             <a
               className="focus-ring font-bold text-primary underline"
+              href="https://valuesincare.com"
+              target="_blank"
+              rel="noreferrer"
+            >
+              valuesincare.com
+            </a>
+            {" · "}
+            <a
+              className="focus-ring font-bold text-primary underline"
               href="https://github.com/saebchicago/navigateconditionmap"
               target="_blank"
               rel="noreferrer"
@@ -1114,6 +1123,36 @@ function Brief({
           <span className="print-line" />
           <span className="print-line" />
         </div>
+      </section>
+
+      <section className="card-surface print-card mt-4 p-5">
+        <h2 className="font-serif text-xl font-semibold text-primary">Before you go</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          General visit prompts. They are not from the 12 guideline cards.
+        </p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>
+            Bring every medicine bottle, including over-the-counter medicines and supplements.
+          </li>
+          <li>Bring the latest test results, or ask the care team where to find them.</li>
+          <li>
+            If cost is a worry, ask: “Is each medicine covered by the person’s plan, and who can
+            tell us the expected cost? Is prior authorization needed, and who handles it? Who can
+            help if a medicine is hard to afford?”
+          </li>
+        </ul>
+        <p className="no-print mt-3 text-sm">
+          Want to think about what matters most to the person first?{" "}
+          <a
+            href="https://valuesincare.com"
+            target="_blank"
+            rel="noreferrer"
+            className="focus-ring font-bold text-primary underline underline-offset-2"
+          >
+            ValuesInCare
+          </a>{" "}
+          is a free, separate site by the same builder. Nothing from this page is sent to it.
+        </p>
       </section>
 
       <section className="card-surface print-card mt-4 p-5">
